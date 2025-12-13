@@ -293,7 +293,38 @@ defmodule SocialScribe.Accounts do
         create_user_credential(format_credential_attrs(user, auth))
 
       %UserCredential{} = credential ->
-        update_user_credential(credential, format_credential_attrs(user, auth))
+        # If updating and the new auth has a refresh_token but the existing one doesn't,
+        # make sure we update it (this handles re-authentication scenarios)
+        updated_attrs = format_credential_attrs(user, auth)
+
+        # If existing credential has no refresh_token but new one does, update it
+        final_attrs =
+          if (is_nil(credential.refresh_token) || credential.refresh_token == "") &&
+             not is_nil(updated_attrs[:refresh_token]) && updated_attrs[:refresh_token] != "" do
+            # Keep the refresh_token from new auth
+            updated_attrs
+          else
+            # Preserve existing refresh_token if new one is nil
+            if is_nil(updated_attrs[:refresh_token]) || updated_attrs[:refresh_token] == "" do
+              Map.put(updated_attrs, :refresh_token, credential.refresh_token)
+            else
+              updated_attrs
+            end
+          end
+
+        case update_user_credential(credential, final_attrs) do
+          {:ok, updated_credential} ->
+            # Broadcast that credential was updated
+            Phoenix.PubSub.broadcast(
+              SocialScribe.PubSub,
+              "user:#{user.id}:credentials",
+              {:credential_updated, updated_credential.id, updated_credential.provider}
+            )
+            {:ok, updated_credential}
+
+          error ->
+            error
+        end
     end
   end
 

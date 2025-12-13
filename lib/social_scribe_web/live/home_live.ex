@@ -9,7 +9,15 @@ defmodule SocialScribeWeb.HomeLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket), do: send(self(), :sync_calendars)
+    if connected?(socket) do
+      send(self(), :sync_calendars)
+
+      # Subscribe to credential expiration notifications
+      Phoenix.PubSub.subscribe(
+        SocialScribe.PubSub,
+        "user:#{socket.assigns.current_user.id}:credentials"
+      )
+    end
 
     socket =
       socket
@@ -68,6 +76,34 @@ defmodule SocialScribeWeb.HomeLive do
       socket
       |> assign(:events, events)
       |> assign(:loading, false)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:credential_expired, credential_id, provider}, socket) do
+    provider_name = String.capitalize(provider)
+
+    socket =
+      socket
+      |> put_flash(
+        :error,
+        "Your #{provider_name} account connection has expired. Please reconnect in Settings to continue syncing calendar events."
+      )
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:credential_updated, _credential_id, provider}, socket) do
+    provider_name = String.capitalize(provider)
+
+    socket =
+      socket
+      |> put_flash(
+        :info,
+        "#{provider_name} account reconnected successfully."
+      )
 
     {:noreply, socket}
   end

@@ -62,6 +62,11 @@ defmodule SocialScribeWeb.MeetingLive.Show do
           })
         )
 
+      # Subscribe to meeting updates via PubSub
+      if connected?(socket) do
+        Phoenix.PubSub.subscribe(SocialScribe.PubSub, "meeting:#{meeting_id}")
+      end
+
       {:ok, socket}
     end
   end
@@ -420,6 +425,18 @@ defmodule SocialScribeWeb.MeetingLive.Show do
 
   @impl true
   def handle_info({:refresh_meeting, meeting_id}, socket) do
+    # Refresh meeting data (manual refresh)
+    refresh_meeting_data(socket, meeting_id)
+  end
+
+  @impl true
+  def handle_info({:meeting_updated, meeting_id}, socket) do
+    # Auto-refresh when meeting is updated via PubSub
+    Logger.info("[MeetingLive] Received meeting_updated PubSub message for meeting #{meeting_id}")
+    refresh_meeting_data(socket, meeting_id)
+  end
+
+  defp refresh_meeting_data(socket, meeting_id) do
     # Refresh meeting data
     meeting = Meetings.get_meeting_with_details(meeting_id)
     {has_recording, recording_status} = check_recording_status(meeting.recall_bot.recall_bot_id)
@@ -430,13 +447,19 @@ defmodule SocialScribeWeb.MeetingLive.Show do
         meeting.meeting_transcript.content &&
         Map.get(meeting.meeting_transcript.content, "data", []) == []
 
+    # Refresh automation results
+    automation_results = Automations.list_automation_results_for_meeting(meeting_id)
+
     socket =
       socket
       |> assign(:meeting, meeting)
+      |> assign(:automation_results, automation_results)
       |> assign(:has_recording, has_recording)
       |> assign(:recording_status, recording_status)
       |> assign(:transcript_exists_but_empty, transcript_exists_but_empty)
       |> assign(:participants_loading, false)
+      |> assign(:transcript_loading, false)
+      |> assign(:email_generating, false)
       |> assign(
         :follow_up_email_form,
         to_form(%{

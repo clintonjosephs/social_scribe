@@ -39,8 +39,25 @@ defmodule SocialScribe.CalendarSyncronizer do
          :ok <- sync_items(items, credential.user_id, credential.id) do
       :ok
     else
+      {:error, {:no_refresh_token, _message}} = error ->
+        # Credential expired without refresh token - user needs to re-authenticate
+        # Mark credential as expired and broadcast to notify user
+        Logger.warning(
+          "Credential #{credential.id} (provider: #{credential.provider}) expired and cannot be refreshed. User needs to re-authenticate in settings."
+        )
+
+        # Mark credential as expired (we'll add a field or use expires_at in the past)
+        # For now, just broadcast so UI can show notification
+        Phoenix.PubSub.broadcast(
+          SocialScribe.PubSub,
+          "user:#{credential.user_id}:credentials",
+          {:credential_expired, credential.id, credential.provider}
+        )
+
+        error
+
       {:error, reason} ->
-        # Log errors but don't crash the sync for other accounts
+        # Log other errors but don't crash the sync for other accounts
         Logger.error("Failed to sync credential #{credential.id}: #{inspect(reason)}")
         {:error, reason}
     end

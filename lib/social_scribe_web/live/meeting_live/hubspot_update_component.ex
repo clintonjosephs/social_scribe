@@ -41,12 +41,14 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
             phx-change="search-contacts"
             value={@search_query}
             placeholder="Search contacts..."
-            class="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            class="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:border-[rgb(9,114,242)]"
+            style="--tw-ring-color: rgb(9, 114, 242);"
           />
           <%= if @searching_contacts do %>
             <div class="absolute right-3 top-2.5">
               <svg
-                class="animate-spin h-5 w-5 text-indigo-600"
+                class="animate-spin h-5 w-5"
+                style="color: rgb(9, 114, 242);"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -80,9 +82,10 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                 phx-click="select-contact"
                 phx-value-contact-id={contact["id"]}
                 phx-target={@myself}
-                class="px-4 py-2 hover:bg-indigo-50 cursor-pointer flex items-center gap-2"
+                class="px-4 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
               >
-                <div class="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-semibold text-sm">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm"
+                     style="background-color: rgba(9, 114, 242, 0.1); color: rgb(9, 114, 242);">
                   <%= get_contact_initials(contact) %>
                 </div>
                 <div class="flex-1">
@@ -103,7 +106,8 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
         <!-- Selected Contact Display -->
         <%= if @selected_contact do %>
           <div class="mt-3 flex items-center gap-2 p-3 bg-slate-50 rounded-md">
-            <div class="flex-shrink-0 w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-semibold">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-semibold"
+                 style="background-color: rgba(9, 114, 242, 0.1); color: rgb(9, 114, 242);">
               <%= get_contact_initials(@selected_contact) %>
             </div>
             <div class="flex-1">
@@ -124,7 +128,8 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
       <%= if @generating_suggestions do %>
         <div class="text-center py-8">
           <svg
-            class="animate-spin h-8 w-8 text-indigo-600 mx-auto mb-2"
+            class="animate-spin h-8 w-8 mx-auto mb-2"
+            style="color: rgb(9, 114, 242);"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -154,7 +159,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
         <div class="space-y-4 mb-6">
           <!-- Group suggestions by object/field group -->
           <%= for {group_name, group_suggestions} <- group_suggestions(@suggestions) do %>
-            <div class="border border-slate-200 rounded-lg p-4">
+            <div class="border border-slate-200 rounded-lg p-4" style="background-color: rgb(245, 248, 247);">
               <!-- Group Header -->
               <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2">
@@ -164,21 +169,22 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                     phx-click="toggle-group"
                     phx-value-group={group_name}
                     phx-target={@myself}
-                    class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                    class="w-4 h-4 border-slate-300 rounded focus:ring-[rgb(9,114,242)]"
+                    style="accent-color: rgb(9, 114, 242);"
                   />
-                  <h3 class="text-lg font-semibold text-slate-700">
+                  <h3 class="text-base font-semibold text-slate-700">
                     <%= group_name %>
                   </h3>
                 </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-sm text-slate-600">
-                    <%= count_selected_in_group(group_suggestions, @selected_updates) %> updates selected
+                <div class="flex items-center gap-3">
+                  <span class="text-xs px-2 py-1 rounded" style="background-color: rgb(225, 229, 233); color: rgb(71, 85, 105);">
+                    <%= count_selected_in_group(group_suggestions, @selected_updates) %> update<%= if count_selected_in_group(group_suggestions, @selected_updates) != 1, do: "s", else: "" %> selected
                   </span>
                   <button
                     phx-click="toggle-group-details"
                     phx-value-group={group_name}
                     phx-target={@myself}
-                    class="text-sm text-indigo-600 hover:text-indigo-800"
+                    class="text-xs text-gray-600 hover:text-gray-800"
                   >
                     <%= if Map.get(@expanded_groups, group_name, true) do %>
                       Hide details
@@ -191,34 +197,35 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
 
               <!-- Group Suggestions -->
               <%= if Map.get(@expanded_groups, group_name, true) do %>
-                <div class="space-y-3 ml-6">
+                <div class="space-y-3">
                   <%= for suggestion <- group_suggestions do %>
-                    <div class="border-l-2 border-slate-200 pl-4">
-                      <div class="flex items-center gap-2 mb-2">
+                    <div>
+                      <div class="text-sm font-medium text-slate-700 mb-2 ml-7">
+                        <%= suggestion.field_label %>
+                      </div>
+                      <div class="flex items-center gap-3">
                         <input
                           type="checkbox"
                           checked={MapSet.member?(@selected_updates, suggestion.field_name)}
                           phx-click="toggle-update"
                           phx-value-field={suggestion.field_name}
                           phx-target={@myself}
-                          class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                          class="w-4 h-4 border-slate-300 rounded focus:ring-[rgb(9,114,242)]"
+                          style="accent-color: rgb(9, 114, 242);"
                         />
-                        <label class="font-medium text-slate-700">
-                          <%= suggestion.field_label %>
-                        </label>
-                      </div>
-
-                      <div class="flex items-center gap-3 mb-2">
                         <!-- Existing Value -->
                         <input
                           type="text"
                           value={format_value(suggestion.existing_value)}
                           readonly
-                          class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded text-slate-600"
+                          class={[
+                            "flex-1 px-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded text-slate-600",
+                            if(suggestion.existing_value && suggestion.existing_value != "", do: "line-through", else: "")
+                          ]}
                         />
                         <!-- Arrow -->
                         <svg
-                          class="w-5 h-5 text-slate-400"
+                          class="w-8 h-5 text-slate-400 flex-shrink-0"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -226,8 +233,8 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                           <path
                             stroke-linecap="round"
                             stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M13 7l5 5m0 0l-5 5m5-5H6"
+                            stroke-width="2.5"
+                            d="M4 12h16m0 0l-6-6m6 6l-6 6"
                           >
                           </path>
                         </svg>
@@ -236,7 +243,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                           type="text"
                           value={suggestion.suggested_value}
                           readonly
-                          class="flex-1 px-3 py-2 bg-white border border-indigo-200 rounded text-slate-800"
+                          class="flex-1 px-3 py-1.5 text-sm bg-white border border-slate-200 rounded text-slate-800"
                         />
                       </div>
 
@@ -248,7 +255,8 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
 
                       <a
                         href="#"
-                        class="text-sm text-indigo-600 hover:text-indigo-800"
+                        class="text-xs hover:underline"
+                        style="color: rgb(9, 114, 242);"
                       >
                         Update mapping
                       </a>
@@ -269,7 +277,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
       <% end %>
 
       <!-- Footer -->
-      <div class="flex items-center justify-between pt-4 border-t border-slate-200">
+      <div class="flex items-center justify-between pt-4 -mx-14 px-14 border-t border-slate-200">
         <div class="text-sm text-slate-600">
           <%= if @selected_updates && MapSet.size(@selected_updates) > 0 do %>
             <%= count_objects(@suggestions, @selected_updates) %> objects,
@@ -284,7 +292,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
             type="button"
             phx-click="cancel"
             phx-target={@myself}
-            class="px-4 py-2 bg-slate-100 text-slate-700 rounded-md hover:bg-slate-200"
+            class="px-4 py-2 text-black border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             Cancel
           </button>
@@ -294,17 +302,21 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
             phx-target={@myself}
             disabled={!@selected_contact || MapSet.size(@selected_updates) == 0 || @updating}
             class={[
-              "px-4 py-2 rounded-md font-medium",
+              "px-4 py-2 rounded-lg text-white text-sm",
               if(@selected_contact && MapSet.size(@selected_updates) > 0 && !@updating,
-                do: "bg-green-600 text-white hover:bg-green-700",
+                do: "hover:opacity-90",
                 else: "bg-slate-300 text-slate-500 cursor-not-allowed"
               )
             ]}
+            style={if(@selected_contact && MapSet.size(@selected_updates) > 0 && !@updating,
+              do: "background-color: rgb(34, 197, 94);",
+              else: ""
+            )}
           >
             <%= if @updating do %>
               Updating...
             <% else %>
-              Update HubSpot
+              Update eMoney
             <% end %>
           </button>
         </div>

@@ -86,9 +86,21 @@ defmodule SocialScribe.Meetings do
 
   """
   def update_meeting(%Meeting{} = meeting, attrs) do
-    meeting
-    |> Meeting.changeset(attrs)
-    |> Repo.update()
+    case meeting
+         |> Meeting.changeset(attrs)
+         |> Repo.update() do
+      {:ok, updated_meeting} = result ->
+        # Broadcast meeting update so LiveViews can refresh
+        Phoenix.PubSub.broadcast(
+          SocialScribe.PubSub,
+          "meeting:#{updated_meeting.id}",
+          {:meeting_updated, updated_meeting.id}
+        )
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -191,9 +203,23 @@ defmodule SocialScribe.Meetings do
 
   """
   def create_meeting_transcript(attrs \\ %{}) do
-    %MeetingTranscript{}
-    |> MeetingTranscript.changeset(attrs)
-    |> Repo.insert()
+    case %MeetingTranscript{}
+         |> MeetingTranscript.changeset(attrs)
+         |> Repo.insert() do
+      {:ok, transcript} = result ->
+        # Broadcast meeting update so LiveViews can refresh
+        if transcript.meeting_id do
+          Phoenix.PubSub.broadcast(
+            SocialScribe.PubSub,
+            "meeting:#{transcript.meeting_id}",
+            {:meeting_updated, transcript.meeting_id}
+          )
+        end
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -209,9 +235,23 @@ defmodule SocialScribe.Meetings do
 
   """
   def update_meeting_transcript(%MeetingTranscript{} = meeting_transcript, attrs) do
-    meeting_transcript
-    |> MeetingTranscript.changeset(attrs)
-    |> Repo.update()
+    case meeting_transcript
+         |> MeetingTranscript.changeset(attrs)
+         |> Repo.update() do
+      {:ok, transcript} = result ->
+        # Broadcast meeting update so LiveViews can refresh
+        if transcript.meeting_id do
+          Phoenix.PubSub.broadcast(
+            SocialScribe.PubSub,
+            "meeting:#{transcript.meeting_id}",
+            {:meeting_updated, transcript.meeting_id}
+          )
+        end
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -287,9 +327,23 @@ defmodule SocialScribe.Meetings do
 
   """
   def create_meeting_participant(attrs \\ %{}) do
-    %MeetingParticipant{}
-    |> MeetingParticipant.changeset(attrs)
-    |> Repo.insert()
+    case %MeetingParticipant{}
+         |> MeetingParticipant.changeset(attrs)
+         |> Repo.insert() do
+      {:ok, participant} = result ->
+        # Broadcast meeting update so LiveViews can refresh
+        if participant.meeting_id do
+          Phoenix.PubSub.broadcast(
+            SocialScribe.PubSub,
+            "meeting:#{participant.meeting_id}",
+            {:meeting_updated, participant.meeting_id}
+          )
+        end
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -379,7 +433,16 @@ defmodule SocialScribe.Meetings do
         end
       end)
 
-      Repo.preload(meeting, [:meeting_transcript, :meeting_participants])
+      updated_meeting = Repo.preload(meeting, [:meeting_transcript, :meeting_participants])
+
+      # Broadcast meeting update so LiveViews can refresh
+      Phoenix.PubSub.broadcast(
+        SocialScribe.PubSub,
+        "meeting:#{updated_meeting.id}",
+        {:meeting_updated, updated_meeting.id}
+      )
+
+      updated_meeting
     end)
   end
 

@@ -258,9 +258,23 @@ defmodule SocialScribe.Automations do
 
   """
   def create_automation_result(attrs \\ %{}) do
-    %AutomationResult{}
-    |> AutomationResult.changeset(attrs)
-    |> Repo.insert()
+    case %AutomationResult{}
+         |> AutomationResult.changeset(attrs)
+         |> Repo.insert() do
+      {:ok, result} = success ->
+        # Broadcast meeting update so LiveViews can refresh
+        if result.meeting_id do
+          Phoenix.PubSub.broadcast(
+            SocialScribe.PubSub,
+            "meeting:#{result.meeting_id}",
+            {:meeting_updated, result.meeting_id}
+          )
+        end
+        success
+
+      error ->
+        error
+    end
   end
 
   @doc """
