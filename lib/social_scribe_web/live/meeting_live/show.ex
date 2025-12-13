@@ -4,7 +4,7 @@ defmodule SocialScribeWeb.MeetingLive.Show do
   import SocialScribeWeb.PlatformLogo
   import SocialScribeWeb.ClipboardButton
 
-  alias SocialScribe.{Meetings, RecallApi}
+  alias SocialScribe.{Meetings, RecallApi, Accounts, HubSpotApi}
   alias SocialScribe.Automations
   require Logger
 
@@ -17,9 +17,15 @@ defmodule SocialScribeWeb.MeetingLive.Show do
       |> length()
       |> Kernel.>(0)
 
-    automation_results = Automations.list_automation_results_for_meeting(meeting_id)
+      automation_results = Automations.list_automation_results_for_meeting(meeting_id)
 
-    if meeting.calendar_event.user_id != socket.assigns.current_user.id do
+      # Check if user has HubSpot account connected
+      has_hubspot_account =
+        Accounts.list_user_credentials(socket.assigns.current_user, provider: "hubspot")
+        |> length()
+        |> Kernel.>(0)
+
+      if meeting.calendar_event.user_id != socket.assigns.current_user.id do
       socket =
         socket
         |> put_flash(:error, "You do not have permission to view this meeting.")
@@ -42,6 +48,7 @@ defmodule SocialScribeWeb.MeetingLive.Show do
         |> assign(:meeting, meeting)
         |> assign(:automation_results, automation_results)
         |> assign(:user_has_automations, user_has_automations)
+        |> assign(:has_hubspot_account, has_hubspot_account)
         |> assign(:has_recording, has_recording)
         |> assign(:recording_status, recording_status)
         |> assign(:transcript_exists_but_empty, transcript_exists_but_empty)
@@ -69,6 +76,11 @@ defmodule SocialScribeWeb.MeetingLive.Show do
       |> assign(:automation_result, automation_result)
       |> assign(:automation, automation)
 
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_params(%{"id" => _meeting_id}, _uri, socket) do
     {:noreply, socket}
   end
 
@@ -288,6 +300,121 @@ defmodule SocialScribeWeb.MeetingLive.Show do
           |> put_flash(:error, "Failed to check recording status. Please try again later.")
 
         {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("open-hubspot-modal", _params, socket) do
+    # Check if meeting has transcript
+    has_transcript =
+      socket.assigns.meeting.meeting_transcript &&
+        socket.assigns.meeting.meeting_transcript.content &&
+        Map.get(socket.assigns.meeting.meeting_transcript.content || %{}, "data", []) != []
+
+    if has_transcript do
+      {:noreply, push_patch(socket, to: ~p"/dashboard/meetings/#{socket.assigns.meeting}/hubspot_update")}
+    else
+      {:noreply,
+       socket
+       |> put_flash(:error, "Cannot update HubSpot: Meeting must have a transcript.")}
+    end
+  end
+
+  @impl true
+  def handle_info({:close_hubspot_modal}, socket) do
+    {:noreply, push_patch(socket, to: ~p"/dashboard/meetings/#{socket.assigns.meeting}")}
+  end
+
+  @impl true
+  def handle_info({:suggestions_generated, component_id, result}, socket) do
+    Logger.info("[Show LiveView] Received suggestions_generated message - component_id: #{component_id}, result: #{inspect(result, limit: 1)}")
+
+    # Forward the message to the component with all required assigns
+    # component_id should be "hubspot-update-5" (the component's ID)
+    component_update_id = "hubspot-update-#{socket.assigns.meeting.id}"
+    Logger.info("[Show LiveView] Calling send_update for component #{component_update_id}, received component_id: #{component_id}")
+
+    send_update(SocialScribeWeb.MeetingLive.HubSpotUpdateComponent,
+      id: component_update_id,
+      meeting: socket.assigns.meeting,
+      current_user: socket.assigns.current_user,
+      suggestions_result: {component_update_id, result}
+    )
+    Logger.info("[Show LiveView] send_update completed")
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:update_hubspot_contact, contact_id, selected_updates, suggestions}, socket) do
+    # Get HubSpot credential
+    credential =
+      Accounts.list_user_credentials(socket.assigns.current_user, provider: "hubspot")
+      |> List.first()
+
+    if credential do
+      # Build update properties from selected suggestions
+      update_properties =
+        suggestions
+        |> Enum.filter(fn suggestion ->
+          MapSet.member?(selected_updates, suggestion.field_name)
+        end)
+        |> Enum.reduce(%{}, fn suggestion, acc ->
+          Map.put(acc, suggestion.field_name, suggestion.suggested_value)
+        end)
+
+      # Update contact (token will be refreshed automatically if needed)
+      case HubSpotApi.update_contact_with_credential(credential, contact_id, update_properties) do
+        {:ok, _updated_contact} ->
+          Logger.info("Successfully updated HubSpot contact #{contact_id}")
+
+          {:noreply,
+           socket
+           |> put_flash(:info, "Successfully updated HubSpot contact!")
+           |> push_patch(to: ~p"/dashboard/meetings/#{socket.assigns.meeting}")}
+
+        {:error, {:api_error, 400, error_body}} ->
+          Logger.error("Failed to update HubSpot contact: #{inspect(error_body)}")
+
+          # Extract field names that don't exist
+          invalid_fields =
+            error_body
+            |> Map.get("errors", [])
+            |> Enum.map(fn error ->
+              case error do
+                %{"code" => "PROPERTY_DOESNT_EXIST", "context" => %{"propertyName" => [field_name]}} ->
+                  field_name
+                %{"code" => "PROPERTY_DOESNT_EXIST", "context" => %{"propertyName" => field_name}} when is_binary(field_name) ->
+                  field_name
+                _ ->
+                  nil
+              end
+            end)
+            |> Enum.filter(&(!is_nil(&1)))
+
+          error_message =
+            if Enum.empty?(invalid_fields) do
+              "Failed to update HubSpot contact. Some fields may not exist in your HubSpot account."
+            else
+              fields_list = Enum.join(invalid_fields, ", ")
+              "Failed to update HubSpot contact. The following fields don't exist in your HubSpot account: #{fields_list}. Please create these custom properties in HubSpot first, or remove them from the update."
+            end
+
+          {:noreply,
+           socket
+           |> put_flash(:error, error_message)}
+
+        {:error, reason} ->
+          Logger.error("Failed to update HubSpot contact: #{inspect(reason)}")
+
+          {:noreply,
+           socket
+           |> put_flash(:error, "Failed to update HubSpot contact. Please try again.")}
+      end
+    else
+      {:noreply,
+       socket
+       |> put_flash(:error, "No HubSpot account connected.")}
     end
   end
 

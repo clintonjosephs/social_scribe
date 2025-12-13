@@ -16,7 +16,12 @@ defmodule SocialScribeWeb.AuthController do
     # HubSpot OAuth flow (manual implementation since no Ueberauth strategy)
     client_id = System.get_env("HUBSPOT_CLIENT_ID")
     redirect_uri = System.get_env("HUBSPOT_REDIRECT_URI") || "#{get_base_url(conn)}/auth/hubspot/callback"
-    scopes = "contacts crm.objects.contacts.read crm.objects.contacts.write"
+    # HubSpot scopes for contact management:
+    # - crm.objects.contacts.read: Read contact records via CRM API
+    # - crm.objects.contacts.write: Write/update contact records via CRM API
+    # - crm.schemas.contacts.read: Read contact schemas/properties (to see available fields)
+    # - crm.objects.contacts.search: Search contacts (optional, for search functionality)
+    scopes = "crm.objects.contacts.read crm.objects.contacts.write crm.schemas.contacts.read crm.schemas.contacts.write"
 
     auth_url =
       "https://app.hubspot.com/oauth/authorize?" <>
@@ -197,6 +202,7 @@ defmodule SocialScribeWeb.AuthController do
     client_secret = System.get_env("HUBSPOT_CLIENT_SECRET")
     redirect_uri = System.get_env("HUBSPOT_REDIRECT_URI") || "#{get_base_url(conn)}/auth/hubspot/callback"
 
+    # HubSpot requires form-urlencoded format, not JSON
     body = %{
       grant_type: "authorization_code",
       client_id: client_id,
@@ -207,8 +213,9 @@ defmodule SocialScribeWeb.AuthController do
 
     client =
       Tesla.client([
-        Tesla.Middleware.JSON,
-        Tesla.Middleware.FormUrlencoded
+        {Tesla.Middleware.FormUrlencoded,
+         encode: &Plug.Conn.Query.encode/1, decode: &Plug.Conn.Query.decode/1},
+        Tesla.Middleware.JSON
       ])
 
     case Tesla.post(client, "https://api.hubapi.com/oauth/v1/token", body) do

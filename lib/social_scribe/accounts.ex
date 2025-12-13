@@ -387,16 +387,29 @@ defmodule SocialScribe.Accounts do
 
       iex> update_credential_tokens(user_credential, %{"access_token" => "new_token", "expires_in" => 3600})
       {:ok, %UserCredential{}}
+
+      iex> update_credential_tokens(user_credential, %{"access_token" => "new_token", "expires_in" => 3600, "refresh_token" => "new_refresh"})
+      {:ok, %UserCredential{}}
   """
   def update_credential_tokens(%UserCredential{} = credential, %{
         "access_token" => token,
         "expires_in" => expires_in
-      }) do
-    credential
-    |> UserCredential.changeset(%{
+      } = attrs) do
+    update_attrs = %{
       token: token,
       expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
-    })
+    }
+
+    # Include refresh_token if provided
+    update_attrs =
+      if Map.has_key?(attrs, "refresh_token") && not is_nil(attrs["refresh_token"]) do
+        Map.put(update_attrs, :refresh_token, attrs["refresh_token"])
+      else
+        update_attrs
+      end
+
+    credential
+    |> UserCredential.changeset(update_attrs)
     |> Repo.update()
   end
 

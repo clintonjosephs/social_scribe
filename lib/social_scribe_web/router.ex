@@ -82,6 +82,7 @@ defmodule SocialScribeWeb.Router do
       live "/meetings", MeetingLive.Index, :index
       live "/meetings/:id", MeetingLive.Show, :show
       live "/meetings/:id/draft_post/:automation_result_id", MeetingLive.Show, :draft_post
+      live "/meetings/:id/hubspot_update", MeetingLive.Show, :hubspot_update
 
       live "/automations", AutomationLive.Index, :index
       live "/automations/new", AutomationLive.Index, :new
