@@ -331,7 +331,6 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
     {:noreply, socket}
   end
 
-  @impl true
   def handle_event("search-contacts", %{"value" => query}, socket) do
     if String.trim(query) == "" do
       {:noreply, assign(socket, contact_results: [], show_contact_dropdown: false)}
@@ -340,7 +339,6 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
     end
   end
 
-  @impl true
   def handle_event("select-contact", %{"contact-id" => contact_id}, socket) do
     Logger.info("[HubSpot Component] select-contact event received for contact_id: #{contact_id}")
 
@@ -380,6 +378,63 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
       {:noreply, socket}
     else
       Logger.warning("[HubSpot Component] Contact not found in results for contact_id: #{contact_id}")
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle-update", %{"field" => field_name}, socket) do
+    selected_updates =
+      if MapSet.member?(socket.assigns.selected_updates, field_name) do
+        MapSet.delete(socket.assigns.selected_updates, field_name)
+      else
+        MapSet.put(socket.assigns.selected_updates, field_name)
+      end
+
+    {:noreply, assign(socket, selected_updates: selected_updates)}
+  end
+
+  def handle_event("toggle-group", %{"group" => group_name}, socket) do
+    group_suggestions = get_group_suggestions(socket.assigns.suggestions, group_name)
+    all_selected = all_group_selected?(group_suggestions, socket.assigns.selected_updates)
+
+    selected_updates =
+      if all_selected do
+        # Deselect all in group
+        Enum.reduce(group_suggestions, socket.assigns.selected_updates, fn suggestion, acc ->
+          MapSet.delete(acc, suggestion.field_name)
+        end)
+      else
+        # Select all in group
+        Enum.reduce(group_suggestions, socket.assigns.selected_updates, fn suggestion, acc ->
+          MapSet.put(acc, suggestion.field_name)
+        end)
+      end
+
+    {:noreply, assign(socket, selected_updates: selected_updates)}
+  end
+
+  def handle_event("toggle-group-details", %{"group" => group_name}, socket) do
+    expanded_groups =
+      Map.update(
+        socket.assigns.expanded_groups,
+        group_name,
+        false,
+        &(!&1)
+      )
+
+    {:noreply, assign(socket, expanded_groups: expanded_groups)}
+  end
+
+  def handle_event("cancel", _params, socket) do
+    send(self(), {:close_hubspot_modal})
+    {:noreply, socket}
+  end
+
+  def handle_event("update-hubspot", _params, socket) do
+    if socket.assigns.selected_contact_id && MapSet.size(socket.assigns.selected_updates) > 0 do
+      send(self(), {:update_hubspot_contact, socket.assigns.selected_contact_id, socket.assigns.selected_updates, socket.assigns.suggestions})
+      {:noreply, assign(socket, updating: true)}
+    else
       {:noreply, socket}
     end
   end
@@ -562,83 +617,10 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
     {:ok, socket}
   end
 
-  @impl true
-  def handle_info({:suggestions_timeout, component_id}, socket) do
-    if socket.id == component_id do
-      Logger.warning("[HubSpot Component] Suggestions generation timed out for component #{component_id}")
-      {:noreply, assign(socket, generating_suggestions: false)}
-    else
-      {:noreply, socket}
-    end
-  end
-
   defp format_error_message(:no_credential), do: "No HubSpot account connected. Please connect a HubSpot account in settings."
   defp format_error_message(:meeting_not_found), do: "Meeting not found."
   defp format_error_message({:fetch_contact_failed, reason}), do: "Failed to fetch contact details: #{inspect(reason)}"
   defp format_error_message(reason), do: "Failed to generate suggestions: #{inspect(reason)}"
-
-  @impl true
-  def handle_event("toggle-update", %{"field" => field_name}, socket) do
-    selected_updates =
-      if MapSet.member?(socket.assigns.selected_updates, field_name) do
-        MapSet.delete(socket.assigns.selected_updates, field_name)
-      else
-        MapSet.put(socket.assigns.selected_updates, field_name)
-      end
-
-    {:noreply, assign(socket, selected_updates: selected_updates)}
-  end
-
-  @impl true
-  def handle_event("toggle-group", %{"group" => group_name}, socket) do
-    group_suggestions = get_group_suggestions(socket.assigns.suggestions, group_name)
-    all_selected = all_group_selected?(group_suggestions, socket.assigns.selected_updates)
-
-    selected_updates =
-      if all_selected do
-        # Deselect all in group
-        Enum.reduce(group_suggestions, socket.assigns.selected_updates, fn suggestion, acc ->
-          MapSet.delete(acc, suggestion.field_name)
-        end)
-      else
-        # Select all in group
-        Enum.reduce(group_suggestions, socket.assigns.selected_updates, fn suggestion, acc ->
-          MapSet.put(acc, suggestion.field_name)
-        end)
-      end
-
-    {:noreply, assign(socket, selected_updates: selected_updates)}
-  end
-
-  @impl true
-  def handle_event("toggle-group-details", %{"group" => group_name}, socket) do
-    expanded_groups =
-      Map.update(
-        socket.assigns.expanded_groups,
-        group_name,
-        false,
-        &(!&1)
-      )
-
-    {:noreply, assign(socket, expanded_groups: expanded_groups)}
-  end
-
-  @impl true
-  def handle_event("cancel", _params, socket) do
-    send(self(), {:close_hubspot_modal})
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("update-hubspot", _params, socket) do
-    if socket.assigns.selected_contact_id && MapSet.size(socket.assigns.selected_updates) > 0 do
-      send(self(), {:update_hubspot_contact, socket.assigns.selected_contact_id, socket.assigns.selected_updates, socket.assigns.suggestions})
-      {:noreply, assign(socket, updating: true)}
-    else
-      {:noreply, socket}
-    end
-  end
-
 
   # Helper functions
 

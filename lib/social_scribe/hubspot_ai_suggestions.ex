@@ -63,55 +63,10 @@ defmodule SocialScribe.HubSpotAISuggestions do
     end
   end
 
-  # Filters out suggestions for fields that don't exist in HubSpot
-  defp filter_valid_suggestions({:ok, suggestions}, available_properties) when is_list(available_properties) do
-    property_names =
-      available_properties
-      |> Enum.map(fn prop ->
-        case prop do
-          %{"name" => name} -> name
-          name when is_binary(name) -> name
-          _ -> nil
-        end
-      end)
-      |> Enum.filter(&(!is_nil(&1)))
-      |> MapSet.new()
-
-    # Standard HubSpot fields that always exist
-    standard_fields = MapSet.new([
-      "firstname", "lastname", "email", "phone", "mobilephone", "company",
-      "jobtitle", "website", "address", "city", "state", "zip", "country"
-    ])
-
-    valid_properties = MapSet.union(property_names, standard_fields)
-
-    filtered =
-      suggestions
-      |> Enum.filter(fn suggestion ->
-        field_name = String.downcase(suggestion.field_name)
-        MapSet.member?(valid_properties, field_name)
-      end)
-
-    invalid_count = length(suggestions) - length(filtered)
-    if invalid_count > 0 do
-      invalid_fields =
-        suggestions
-        |> Enum.reject(fn suggestion ->
-          field_name = String.downcase(suggestion.field_name)
-          MapSet.member?(valid_properties, field_name)
-        end)
-        |> Enum.map(& &1.field_name)
-
-      Logger.warning("Filtered out #{invalid_count} suggestions for non-existent fields: #{inspect(invalid_fields)}")
-    end
-
-    {:ok, filtered}
-  end
-
-  defp filter_valid_suggestions(result, _), do: result
-
   # Formats HubSpot contact data into a readable string for the AI prompt
-  defp format_contact_info(hubspot_contact, _available_properties \\ nil) when is_map(hubspot_contact) do
+  defp format_contact_info(hubspot_contact, available_properties \\ nil)
+
+  defp format_contact_info(hubspot_contact, _available_properties) when is_map(hubspot_contact) do
     properties = Map.get(hubspot_contact, "properties", %{})
 
     # Standard fields

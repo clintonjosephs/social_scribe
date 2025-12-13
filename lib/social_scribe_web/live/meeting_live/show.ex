@@ -326,11 +326,21 @@ defmodule SocialScribeWeb.MeetingLive.Show do
   end
 
   @impl true
+  def handle_info({:refresh_meeting, meeting_id}, socket) do
+    # Refresh meeting data (manual refresh)
+    refresh_meeting_data(socket, meeting_id)
+  end
+
+  def handle_info({:meeting_updated, meeting_id}, socket) do
+    # Auto-refresh when meeting is updated via PubSub
+    Logger.info("[MeetingLive] Received meeting_updated PubSub message for meeting #{meeting_id}")
+    refresh_meeting_data(socket, meeting_id)
+  end
+
   def handle_info({:close_hubspot_modal}, socket) do
     {:noreply, push_patch(socket, to: ~p"/dashboard/meetings/#{socket.assigns.meeting}")}
   end
 
-  @impl true
   def handle_info({:suggestions_generated, component_id, result}, socket) do
     Logger.info("[Show LiveView] Received suggestions_generated message - component_id: #{component_id}, result: #{inspect(result, limit: 1)}")
 
@@ -603,19 +613,6 @@ defmodule SocialScribeWeb.MeetingLive.Show do
            socket
            |> put_flash(:error, "Failed to update HubSpot contact. Please try again.")}
     end
-  end
-
-  @impl true
-  def handle_info({:refresh_meeting, meeting_id}, socket) do
-    # Refresh meeting data (manual refresh)
-    refresh_meeting_data(socket, meeting_id)
-  end
-
-  @impl true
-  def handle_info({:meeting_updated, meeting_id}, socket) do
-    # Auto-refresh when meeting is updated via PubSub
-    Logger.info("[MeetingLive] Received meeting_updated PubSub message for meeting #{meeting_id}")
-    refresh_meeting_data(socket, meeting_id)
   end
 
   defp refresh_meeting_data(socket, meeting_id) do

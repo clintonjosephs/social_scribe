@@ -3,7 +3,6 @@ defmodule SocialScribeWeb.AuthController do
 
   alias SocialScribe.FacebookApi
   alias SocialScribe.Accounts
-  alias SocialScribeWeb.UserAuth
   plug Ueberauth
 
   require Logger
@@ -249,33 +248,5 @@ defmodule SocialScribeWeb.AuthController do
       {:error, reason} ->
         {:error, reason}
     end
-  end
-
-  def callback(%{assigns: %{ueberauth_auth: auth}} = conn, _params) do
-    Logger.info("Google OAuth Login")
-    Logger.info(auth)
-
-    case Accounts.find_or_create_user_from_oauth(auth) do
-      {:ok, user} ->
-        conn
-        |> UserAuth.log_in_user(user)
-
-      {:error, reason} ->
-        Logger.info("error")
-        Logger.info(reason)
-
-        conn
-        |> put_flash(:error, "There was an error signing you in.")
-        |> redirect(to: ~p"/")
-    end
-  end
-
-  def callback(conn, _params) do
-    Logger.error("OAuth Login")
-    Logger.error(conn)
-
-    conn
-    |> put_flash(:error, "There was an error signing you in. Please try again.")
-    |> redirect(to: ~p"/")
   end
 end

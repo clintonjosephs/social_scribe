@@ -81,7 +81,7 @@ defmodule SocialScribeWeb.HomeLive do
   end
 
   @impl true
-  def handle_info({:credential_expired, credential_id, provider}, socket) do
+  def handle_info({:credential_expired, _credential_id, provider}, socket) do
     provider_name = String.capitalize(provider)
 
     socket =
