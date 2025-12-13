@@ -64,8 +64,6 @@ defmodule SocialScribe.HubSpotAISuggestions do
   end
 
   # Formats HubSpot contact data into a readable string for the AI prompt
-  defp format_contact_info(hubspot_contact, available_properties \\ nil)
-
   defp format_contact_info(hubspot_contact, _available_properties) when is_map(hubspot_contact) do
     properties = Map.get(hubspot_contact, "properties", %{})
 
@@ -113,7 +111,7 @@ defmodule SocialScribe.HubSpotAISuggestions do
   defp format_contact_info(_, _), do: "No HubSpot contact information available."
 
   # Builds the AI prompt for generating suggestions
-  defp build_suggestion_prompt(meeting_prompt, contact_info, available_properties \\ nil) do
+  defp build_suggestion_prompt(meeting_prompt, contact_info, available_properties) do
     available_fields_info = format_available_fields(available_properties)
     """
     You are analyzing a meeting transcript to identify updates that should be made to a HubSpot CRM contact record.
