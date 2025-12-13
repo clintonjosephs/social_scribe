@@ -185,21 +185,34 @@ defmodule SocialScribe.Workers.BotStatusPoller do
 
         case Map.get(transcript_status, :code) do
           "done" ->
-            # Transcript is ready, download it
-            download_url = get_in(transcript_info, [:data, :download_url])
+            # Check if transcript data is already in the response
+            transcript_data =
+              get_in(transcript_info, [:data, :results]) ||
+                get_in(transcript_info, [:data, :data]) ||
+                get_in(transcript_info, [:results]) ||
+                get_in(transcript_info, [:data])
 
-            if download_url do
-              case download_transcript_from_url(download_url) do
-                {:ok, transcript_data} ->
-                  {:ok, transcript_data}
-
-                {:error, reason} ->
-                  Logger.error("Failed to download transcript from URL: #{inspect(reason)}")
-                  {:error, :download_failed}
-              end
+            if transcript_data && (is_list(transcript_data) || (is_map(transcript_data) && Map.has_key?(transcript_data, :results))) do
+              # Transcript data is already available
+              final_data = if is_list(transcript_data), do: transcript_data, else: Map.get(transcript_data, :results, [])
+              {:ok, final_data}
             else
-              Logger.warning("Transcript #{transcript_id} is done but has no download URL")
-              {:error, :no_download_url}
+              # Try to download from URL
+              download_url = get_in(transcript_info, [:data, :download_url])
+
+              if download_url do
+                case download_transcript_from_url(download_url) do
+                  {:ok, transcript_data} ->
+                    {:ok, transcript_data}
+
+                  {:error, reason} ->
+                    Logger.error("Failed to download transcript from URL: #{inspect(reason)}")
+                    {:error, :download_failed}
+                end
+              else
+                Logger.warning("Transcript #{transcript_id} is done but has no download URL or inline data")
+                {:error, :no_download_url}
+              end
             end
 
           _ ->

@@ -411,12 +411,24 @@ defmodule SocialScribe.Meetings do
 
       # Extract participants from transcript data (transcripts contain participant info)
       # Also check bot_api_info for direct participant data
-      participants =
-        extract_participants_from_transcript(transcript_data) ++
-          extract_participants_from_bot_info(bot_api_info)
+      transcript_participants = extract_participants_from_transcript(transcript_data)
+      bot_info_participants = extract_participants_from_bot_info(bot_api_info)
 
-      # Remove duplicates based on participant ID
-      unique_participants = Enum.uniq_by(participants, &Map.get(&1, :id) || Map.get(&1, "id"))
+      # Merge participants, preferring bot_info data (which has is_host) when IDs match
+      # Group by ID and merge data
+      all_participants = transcript_participants ++ bot_info_participants
+
+      unique_participants =
+        all_participants
+        |> Enum.group_by(fn p -> Map.get(p, :id) || Map.get(p, "id") end)
+        |> Enum.map(fn {_id, participant_list} ->
+          # Merge all participant data, preferring bot_info data (last in list) for is_host
+          Enum.reduce(participant_list, %{}, fn participant, acc ->
+            Map.merge(acc, participant, fn
+              _key, _val1, val2 -> val2  # Prefer later values (bot_info)
+            end)
+          end)
+        end)
 
       # Create participants and log any errors
       Enum.each(unique_participants, fn participant_data ->
@@ -449,17 +461,28 @@ defmodule SocialScribe.Meetings do
   # --- Private Parser Functions ---
 
   defp parse_meeting_attrs(calendar_event, recall_bot, bot_api_info) do
-    recording_info = List.first(bot_api_info.recordings || []) || %{}
+    recordings = Map.get(bot_api_info, :recordings) || Map.get(bot_api_info, "recordings") || []
+    recording_info = List.first(recordings) || %{}
 
     completed_at =
-      case DateTime.from_iso8601(recording_info.completed_at) do
-        {:ok, parsed_completed_at, _} -> parsed_completed_at
+      case Map.get(recording_info, :completed_at) || Map.get(recording_info, "completed_at") do
+        nil -> nil
+        timestamp when is_binary(timestamp) ->
+          case DateTime.from_iso8601(timestamp) do
+            {:ok, parsed_completed_at, _} -> parsed_completed_at
+            _ -> nil
+          end
         _ -> nil
       end
 
     recorded_at =
-      case DateTime.from_iso8601(recording_info.started_at) do
-        {:ok, parsed_recorded_at, _} -> parsed_recorded_at
+      case Map.get(recording_info, :started_at) || Map.get(recording_info, "started_at") do
+        nil -> nil
+        timestamp when is_binary(timestamp) ->
+          case DateTime.from_iso8601(timestamp) do
+            {:ok, parsed_recorded_at, _} -> parsed_recorded_at
+            _ -> nil
+          end
         _ -> nil
       end
 
@@ -524,14 +547,34 @@ defmodule SocialScribe.Meetings do
       participants =
         transcript_list
         |> Enum.map(fn segment ->
-          # Handle both atom and string keys
-          participant =
-            Map.get(segment, :participant) ||
-              Map.get(segment, "participant") ||
-              Map.get(segment, :speaker) ||
-              Map.get(segment, "speaker")
+          # Handle different transcript formats:
+          # 1. participant/speaker is a map with id/name
+          # 2. speaker is a string with separate speaker_id field
+          cond do
+            # Case 1: participant/speaker is a map
+            participant = Map.get(segment, :participant) || Map.get(segment, "participant") ->
+              if is_map(participant), do: participant, else: nil
 
-          participant
+            speaker = Map.get(segment, :speaker) || Map.get(segment, "speaker") ->
+              if is_map(speaker) do
+                speaker
+              else
+                # Case 2: speaker is a string, construct participant map from segment
+                speaker_id = Map.get(segment, :speaker_id) || Map.get(segment, "speaker_id")
+                if is_binary(speaker) or is_integer(speaker_id) do
+                  %{
+                    id: speaker_id,
+                    name: if(is_binary(speaker), do: speaker, else: nil),
+                    is_host: Map.get(segment, :is_host, Map.get(segment, "is_host", false))
+                  }
+                else
+                  nil
+                end
+              end
+
+            true ->
+              nil
+          end
         end)
         |> Enum.filter(&(!is_nil(&1)))
 
@@ -540,15 +583,29 @@ defmodule SocialScribe.Meetings do
       unique_participants =
         participants
         |> Enum.uniq_by(fn p ->
-          Map.get(p, :id) || Map.get(p, "id") || Map.get(p, :name) || Map.get(p, "name")
+          # Use id if available, otherwise use name
+          case p do
+            %{} = map -> Map.get(map, :id) || Map.get(map, "id") || Map.get(map, :name) || Map.get(map, "name")
+            _ -> p
+          end
         end)
         |> Enum.map(fn p ->
           # Normalize to atom keys
-          %{
-            id: Map.get(p, :id) || Map.get(p, "id"),
-            name: Map.get(p, :name) || Map.get(p, "name") || "Unknown",
-            is_host: Map.get(p, :is_host, Map.get(p, "is_host", false))
-          }
+          case p do
+            %{} = map ->
+              %{
+                id: Map.get(map, :id) || Map.get(map, "id"),
+                name: Map.get(map, :name) || Map.get(map, "name") || "Unknown",
+                is_host: Map.get(map, :is_host, Map.get(map, "is_host", false))
+              }
+
+            _ ->
+              %{
+                id: nil,
+                name: "Unknown",
+                is_host: false
+              }
+          end
         end)
 
       Logger.debug("Extracted #{length(unique_participants)} unique participants")

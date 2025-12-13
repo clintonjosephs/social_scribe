@@ -86,7 +86,7 @@ defmodule SocialScribe.Workers.BotStatusPollerTest do
         })
 
       expect(RecallApiMock, :get_bot, fn "bot-pending-123" ->
-        {:ok, %Tesla.Env{body: @mock_bot_api_info_pending}}
+        {:ok, %Tesla.Env{status: 200, body: @mock_bot_api_info_pending}}
       end)
 
       assert BotStatusPoller.perform(%Oban.Job{}) == :ok
@@ -109,18 +109,37 @@ defmodule SocialScribe.Workers.BotStatusPollerTest do
           status: "recording_done"
         })
 
+      # Modify bot_api_info to include recording status
+      bot_api_info_with_status =
+        update_in(@mock_bot_api_info_done, [:recordings, Access.at(0), :status], fn _ ->
+          %{code: "done"}
+        end)
+
       # Expect API call to get bot status
       expect(RecallApiMock, :get_bot, fn "bot-done-456" ->
         # Returns "done"
-        {:ok, %Tesla.Env{body: @mock_bot_api_info_done}}
+        {:ok, %Tesla.Env{status: 200, body: bot_api_info_with_status}}
       end)
 
-      # Expect API call to get transcript
-      expect(RecallApiMock, :get_bot_transcript, fn "bot-done-456" ->
-        {:ok, %Tesla.Env{body: @mock_transcript_data}}
+      # Expect API call to create transcript
+      recording_id = get_in(bot_api_info_with_status, [:recordings, Access.at(0), :id])
+      expect(RecallApiMock, :create_transcript, fn ^recording_id ->
+        {:ok, %Tesla.Env{status: 200, body: %{id: "transcript-123"}}}
       end)
 
-      expect(AIGeneratorMock, :generate_follow_up_email, fn @mock_transcript_data ->
+      # Expect API call to get transcript (returns done with inline transcript data)
+      expect(RecallApiMock, :get_transcript, fn "transcript-123" ->
+        {:ok,
+         %Tesla.Env{
+           status: 200,
+           body: %{
+             status: %{code: "done"},
+             data: %{results: @mock_transcript_data}
+           }
+         }}
+      end)
+
+      expect(AIGeneratorMock, :generate_follow_up_email, fn _meeting ->
         {:ok, "Follow-up email draft"}
       end)
 
@@ -178,7 +197,7 @@ defmodule SocialScribe.Workers.BotStatusPollerTest do
       expect(RecallApiMock, :get_bot, fn "bot-already-processed-789" ->
         # Simulate Recall API still reporting it as "done"
         {:ok,
-         %Tesla.Env{body: Map.put(@mock_bot_api_info_done, "id", "bot-already-processed-789")}}
+         %Tesla.Env{status: 200, body: Map.put(@mock_bot_api_info_done, "id", "bot-already-processed-789")}}
       end)
 
       # CRUCIALLY: Do NOT expect get_bot_transcript to be called again
@@ -238,7 +257,7 @@ defmodule SocialScribe.Workers.BotStatusPollerTest do
       # Expect API call to get bot status (returns "done")
       expect(RecallApiMock, :get_bot, fn "bot-transcript-error-111" ->
         {:ok,
-         %Tesla.Env{body: Map.put(@mock_bot_api_info_done, "id", "bot-transcript-error-111")}}
+         %Tesla.Env{status: 200, body: Map.put(@mock_bot_api_info_done, "id", "bot-transcript-error-111")}}
       end)
 
       # Expect API call to get transcript to FAIL

@@ -108,7 +108,8 @@ defmodule SocialScribe.BotsTest do
         assert start_time == DateTime.add(calendar_event.start_time, -2, :minute)
 
         {:ok,
-         %{
+         %Tesla.Env{
+           status: 200,
            body: %{
              id: "recall_bot_123",
              video_url: nil,
@@ -150,7 +151,8 @@ defmodule SocialScribe.BotsTest do
         assert start_time == DateTime.add(calendar_event.start_time, -10, :minute)
 
         {:ok,
-         %{
+         %Tesla.Env{
+           status: 200,
            body: %{
              id: "recall_bot_123",
              video_url: nil,
