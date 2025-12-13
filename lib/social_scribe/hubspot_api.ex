@@ -246,6 +246,133 @@ defmodule SocialScribe.HubSpotApi do
     end
   end
 
+  @doc """
+  Creates a custom property for contacts in HubSpot.
+
+  ## Examples
+
+      iex> create_contact_property(access_token, "account_balance", "Account Balance", "number")
+      {:ok, %{"name" => "account_balance", ...}}
+  """
+  def create_contact_property(access_token, property_name, label, type \\ "string", field_type \\ "text") do
+    client = build_client(access_token)
+    url = "#{@hubspot_api_base_url}/crm/v3/properties/contacts"
+
+    payload = %{
+      groupName: "contactinformation",
+      name: property_name,
+      label: label,
+      type: type,
+      fieldType: field_type,
+      hasUniqueValue: false
+    }
+
+    case Tesla.post(client, url, payload) do
+      {:ok, %Tesla.Env{status: 201, body: body}} ->
+        Logger.info("Successfully created HubSpot property: #{property_name}")
+        {:ok, body}
+
+      {:ok, %Tesla.Env{status: 409, body: _body}} ->
+        # Property already exists
+        Logger.info("HubSpot property #{property_name} already exists")
+        {:ok, :already_exists}
+
+      {:ok, %Tesla.Env{status: status, body: error_body}} ->
+        Logger.error("HubSpot create property failed: #{status} - #{inspect(error_body)}")
+        {:error, {:api_error, status, error_body}}
+
+      {:error, reason} ->
+        Logger.error("HubSpot create property HTTP error: #{inspect(reason)}")
+        {:error, {:http_error, reason}}
+    end
+  end
+
+  @doc """
+  Creates a contact property using a UserCredential (automatically refreshes token if needed).
+  """
+  def create_contact_property_with_credential(%UserCredential{} = credential, property_name, label, type \\ "string", field_type \\ "text") do
+    with {:ok, token} <- ensure_valid_token(credential) do
+      create_contact_property(token, property_name, label, type, field_type)
+    end
+  end
+
+  @doc """
+  Ensures a property exists, creating it if necessary.
+  Returns the property type and field type to use.
+  """
+  def ensure_property_exists(access_token, property_name, label, value) do
+    # Standard HubSpot fields that always exist - don't try to create them
+    standard_fields = MapSet.new([
+      "firstname", "lastname", "email", "phone", "mobilephone", "company",
+      "jobtitle", "website", "address", "city", "state", "zip", "country",
+      "lifecyclestage", "hubspot_owner_id"
+    ])
+
+    property_name_lower = String.downcase(property_name)
+
+    # Don't try to create standard fields
+    if MapSet.member?(standard_fields, property_name_lower) do
+      Logger.info("Property #{property_name} is a standard HubSpot field, skipping creation")
+      {:ok, :exists}
+    else
+      # First check if property exists
+      case get_contact_properties(access_token) do
+        {:ok, properties} ->
+          property_names =
+            properties
+            |> Enum.map(fn prop -> Map.get(prop, "name") |> String.downcase() end)
+            |> MapSet.new()
+
+          if MapSet.member?(property_names, property_name_lower) do
+            {:ok, :exists}
+          else
+            # Determine property type from value
+            {type, field_type} = infer_property_type(value)
+
+            # Create the property
+            case create_contact_property(access_token, property_name, label, type, field_type) do
+              {:ok, _} -> {:ok, :created}
+              {:error, reason} -> {:error, reason}
+            end
+          end
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Ensures a property exists using a UserCredential.
+  """
+  def ensure_property_exists_with_credential(%UserCredential{} = credential, property_name, label, value) do
+    with {:ok, token} <- ensure_valid_token(credential) do
+      ensure_property_exists(token, property_name, label, value)
+    end
+  end
+
+  # Infers the HubSpot property type from a value
+  # Returns {type, fieldType} where fieldType must be one of HubSpot's valid field types:
+  # calculation_equation, checkbox, phonenumber, number, textarea, booleancheckbox, file, text, date, html, select, radio
+  defp infer_property_type(value) when is_binary(value) do
+    # Check if it's a date
+    cond do
+      Regex.match?(~r/^\d{4}-\d{2}-\d{2}/, value) -> {"date", "date"}
+      Regex.match?(~r/^\d{1,2}\/\d{1,2}\/\d{4}/, value) -> {"date", "date"}
+      # Check if it's a number (with currency symbols or commas)
+      Regex.match?(~r/^[\$€£¥]?\s*\d+([.,]\d+)?%?$/, String.replace(value, ~r/[,]/, "")) -> {"number", "number"}
+      # Check if it's a phone number - use "phonenumber" (no underscore) for HubSpot
+      Regex.match?(~r/^[\d\s\-\(\)\+]+$/, value) && String.length(String.replace(value, ~r/[\s\-\(\)\+]/, "")) >= 10 -> {"string", "phonenumber"}
+      # Check if it's an email
+      Regex.match?(~r/^[^\s]+@[^\s]+$/, value) -> {"string", "text"}
+      # Default to text
+      true -> {"string", "text"}
+    end
+  end
+
+  defp infer_property_type(value) when is_number(value), do: {"number", "number"}
+  defp infer_property_type(_), do: {"string", "text"}
+
   # Ensures the credential has a valid token, refreshing if necessary
   defp ensure_valid_token(%UserCredential{} = credential) do
     # Check if token is expired or will expire soon (within 5 minutes)

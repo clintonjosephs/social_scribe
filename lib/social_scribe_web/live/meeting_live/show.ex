@@ -359,17 +359,177 @@ defmodule SocialScribeWeb.MeetingLive.Show do
 
     if credential do
       # Build update properties from selected suggestions
-      update_properties =
+      selected_suggestions =
         suggestions
         |> Enum.filter(fn suggestion ->
           MapSet.member?(selected_updates, suggestion.field_name)
         end)
-        |> Enum.reduce(%{}, fn suggestion, acc ->
-          Map.put(acc, suggestion.field_name, suggestion.suggested_value)
-        end)
 
-      # Update contact (token will be refreshed automatically if needed)
-      case HubSpotApi.update_contact_with_credential(credential, contact_id, update_properties) do
+      # Note: update_properties will be built after filtering read-only properties
+
+      # Ensure all properties exist before updating
+      # Get available properties to check which ones need to be created
+      case HubSpotApi.get_contact_properties_with_credential(credential) do
+        {:ok, available_properties} ->
+          property_names =
+            available_properties
+            |> Enum.map(fn prop -> Map.get(prop, "name") end)
+            |> MapSet.new()
+
+          # Standard fields that always exist
+          standard_fields = MapSet.new([
+            "firstname", "lastname", "email", "phone", "mobilephone", "company",
+            "jobtitle", "website", "address", "city", "state", "zip", "country"
+          ])
+
+          valid_properties = MapSet.union(property_names, standard_fields)
+
+          # Filter out read-only properties
+          read_only_properties =
+            available_properties
+            |> Enum.filter(fn prop ->
+              Map.get(prop, "modificationMetadata", %{}) |> Map.get("readOnlyValue", false)
+            end)
+            |> Enum.map(fn prop -> Map.get(prop, "name") end)
+            |> MapSet.new()
+
+          # Also filter out HubSpot system properties (they start with "hs_")
+          system_properties =
+            property_names
+            |> Enum.filter(fn name -> String.starts_with?(name, "hs_") end)
+            |> MapSet.new()
+
+          read_only_properties = MapSet.union(read_only_properties, system_properties)
+
+          # Filter out read-only properties from selected suggestions
+          writable_suggestions =
+            selected_suggestions
+            |> Enum.reject(fn suggestion ->
+              field_name = String.downcase(suggestion.field_name)
+              MapSet.member?(read_only_properties, field_name)
+            end)
+
+          # Build update properties from writable suggestions (validate emails)
+          update_properties =
+            writable_suggestions
+            |> Enum.reduce(%{}, fn suggestion, acc ->
+              # Validate email format if it's an email field
+              value =
+                if suggestion.field_name == "email" do
+                  validate_email(suggestion.suggested_value)
+                else
+                  suggestion.suggested_value
+                end
+
+              if value do
+                Map.put(acc, suggestion.field_name, value)
+              else
+                acc
+              end
+            end)
+
+          # Find properties that don't exist and create them
+          missing_properties =
+            writable_suggestions
+            |> Enum.filter(fn suggestion ->
+              field_name = String.downcase(suggestion.field_name)
+              not MapSet.member?(valid_properties, field_name)
+            end)
+
+          # Create missing properties
+          created_properties =
+            missing_properties
+            |> Enum.map(fn suggestion ->
+              case HubSpotApi.ensure_property_exists_with_credential(
+                credential,
+                suggestion.field_name,
+                suggestion.field_label,
+                suggestion.suggested_value
+              ) do
+                {:ok, :created} ->
+                  Logger.info("Created HubSpot property: #{suggestion.field_name}")
+                  {:ok, suggestion.field_name}
+                {:ok, :exists} ->
+                  Logger.info("Property already exists: #{suggestion.field_name}")
+                  {:ok, suggestion.field_name}
+                {:error, reason} ->
+                  Logger.error("Failed to create property #{suggestion.field_name}: #{inspect(reason)}")
+                  {:error, suggestion.field_name, reason}
+              end
+            end)
+
+          # Check if any property creation failed
+          failed_creations = Enum.filter(created_properties, &match?({:error, _, _}, &1))
+
+          if Enum.empty?(failed_creations) do
+            # update_properties already excludes read-only properties (built from writable_suggestions)
+            # All properties created successfully, proceed with update
+            update_contact_with_retry(credential, contact_id, update_properties, socket)
+          else
+            failed_fields = Enum.map(failed_creations, fn {:error, field, _} -> field end)
+            fields_list = Enum.join(failed_fields, ", ")
+
+            {:noreply,
+             socket
+             |> put_flash(:error, "Failed to create some custom properties: #{fields_list}. Please try again or create them manually in HubSpot.")}
+          end
+
+        {:error, reason} ->
+          Logger.warning("Failed to fetch properties, attempting update anyway: #{inspect(reason)}")
+
+          # Build update properties from selected suggestions (validate emails)
+          update_properties =
+            selected_suggestions
+            |> Enum.reduce(%{}, fn suggestion, acc ->
+              # Validate email format if it's an email field
+              value =
+                if suggestion.field_name == "email" do
+                  validate_email(suggestion.suggested_value)
+                else
+                  suggestion.suggested_value
+                end
+
+              if value do
+                Map.put(acc, suggestion.field_name, value)
+              else
+                acc
+              end
+            end)
+
+          # Filter out known read-only properties (HubSpot system properties)
+          filtered_update_properties =
+            update_properties
+            |> Enum.reject(fn {field_name, _value} ->
+              String.starts_with?(String.downcase(field_name), "hs_")
+            end)
+            |> Enum.into(%{})
+
+          # If we can't fetch properties, try updating anyway (might work if all are standard fields)
+          update_contact_with_retry(credential, contact_id, filtered_update_properties, socket)
+      end
+    else
+      {:noreply,
+       socket
+       |> put_flash(:error, "No HubSpot account connected.")}
+    end
+  end
+
+  # Validates email format
+  defp validate_email(email) when is_binary(email) do
+    # Basic email validation - check for @ symbol and basic format
+    trimmed = String.trim(email)
+    if Regex.match?(~r/^[^\s]+@[^\s]+\.[^\s]+$/, trimmed) do
+      trimmed
+    else
+      nil
+    end
+  end
+
+  defp validate_email(_), do: nil
+
+  defp update_contact_with_retry(credential, contact_id, update_properties, socket) do
+    # Update contact (token will be refreshed automatically if needed)
+    case HubSpotApi.update_contact_with_credential(credential, contact_id, update_properties) do
         {:ok, _updated_contact} ->
           Logger.info("Successfully updated HubSpot contact #{contact_id}")
 
@@ -381,28 +541,55 @@ defmodule SocialScribeWeb.MeetingLive.Show do
         {:error, {:api_error, 400, error_body}} ->
           Logger.error("Failed to update HubSpot contact: #{inspect(error_body)}")
 
-          # Extract field names that don't exist
-          invalid_fields =
-            error_body
-            |> Map.get("errors", [])
+          # Extract different types of errors
+          errors = Map.get(error_body, "errors", [])
+
+          read_only_fields =
+            errors
+            |> Enum.filter(&(&1["code"] == "READ_ONLY_VALUE"))
             |> Enum.map(fn error ->
               case error do
-                %{"code" => "PROPERTY_DOESNT_EXIST", "context" => %{"propertyName" => [field_name]}} ->
-                  field_name
-                %{"code" => "PROPERTY_DOESNT_EXIST", "context" => %{"propertyName" => field_name}} when is_binary(field_name) ->
-                  field_name
-                _ ->
-                  nil
+                %{"context" => %{"propertyName" => [field_name]}} -> field_name
+                %{"context" => %{"propertyName" => field_name}} when is_binary(field_name) -> field_name
+                _ -> nil
               end
             end)
             |> Enum.filter(&(!is_nil(&1)))
 
+          invalid_emails =
+            errors
+            |> Enum.filter(&(&1["code"] == "INVALID_EMAIL"))
+            |> Enum.map(fn error ->
+              case error do
+                %{"context" => %{"propertyName" => [field_name]}} -> field_name
+                %{"context" => %{"propertyName" => field_name}} when is_binary(field_name) -> field_name
+                _ -> nil
+              end
+            end)
+            |> Enum.filter(&(!is_nil(&1)))
+
+          missing_fields =
+            errors
+            |> Enum.filter(&(&1["code"] == "PROPERTY_DOESNT_EXIST"))
+            |> Enum.map(fn error ->
+              case error do
+                %{"context" => %{"propertyName" => [field_name]}} -> field_name
+                %{"context" => %{"propertyName" => field_name}} when is_binary(field_name) -> field_name
+                _ -> nil
+              end
+            end)
+            |> Enum.filter(&(!is_nil(&1)))
+
+          error_parts = []
+          error_parts = if Enum.empty?(read_only_fields), do: error_parts, else: ["Read-only fields: #{Enum.join(read_only_fields, ", ")}"]
+          error_parts = if Enum.empty?(invalid_emails), do: error_parts, else: ["Invalid email format: #{Enum.join(invalid_emails, ", ")}"]
+          error_parts = if Enum.empty?(missing_fields), do: error_parts, else: ["Missing fields: #{Enum.join(missing_fields, ", ")}"]
+
           error_message =
-            if Enum.empty?(invalid_fields) do
-              "Failed to update HubSpot contact. Some fields may not exist in your HubSpot account."
+            if Enum.empty?(error_parts) do
+              "Failed to update HubSpot contact. Please check the values and try again."
             else
-              fields_list = Enum.join(invalid_fields, ", ")
-              "Failed to update HubSpot contact. The following fields don't exist in your HubSpot account: #{fields_list}. Please create these custom properties in HubSpot first, or remove them from the update."
+              "Failed to update HubSpot contact. " <> Enum.join(error_parts, ". ")
             end
 
           {:noreply,
@@ -415,11 +602,6 @@ defmodule SocialScribeWeb.MeetingLive.Show do
           {:noreply,
            socket
            |> put_flash(:error, "Failed to update HubSpot contact. Please try again.")}
-      end
-    else
-      {:noreply,
-       socket
-       |> put_flash(:error, "No HubSpot account connected.")}
     end
   end
 

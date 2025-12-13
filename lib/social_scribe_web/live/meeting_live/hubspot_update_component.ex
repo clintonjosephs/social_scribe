@@ -242,7 +242,6 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                         <input
                           type="text"
                           value={suggestion.suggested_value}
-                          readonly
                           class="flex-1 px-3 py-1.5 text-sm bg-white border border-slate-200 rounded text-slate-800"
                         />
                       </div>
@@ -409,8 +408,19 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           Logger.info("[HubSpot Component] Fetching HubSpot contact...")
           case HubSpotApi.get_contact_with_credential(credential, contact_id) do
             {:ok, contact} ->
-              Logger.info("[HubSpot Component] Contact fetched successfully, generating suggestions...")
-              result = HubSpotAISuggestions.generate_suggestions(meeting, contact)
+              Logger.info("[HubSpot Component] Contact fetched successfully, fetching available properties...")
+
+              # Fetch available HubSpot properties to validate suggestions
+              available_properties =
+                case HubSpotApi.get_contact_properties_with_credential(credential) do
+                  {:ok, props} -> props
+                  {:error, _} ->
+                    Logger.warning("[HubSpot Component] Failed to fetch properties, proceeding without validation")
+                    nil
+                end
+
+              Logger.info("[HubSpot Component] Generating suggestions with #{if available_properties, do: length(available_properties), else: 0} available properties...")
+              result = HubSpotAISuggestions.generate_suggestions(meeting, contact, available_properties)
               Logger.info("[HubSpot Component] Suggestions generated - result: #{inspect(result, limit: 1)}")
               result
 
