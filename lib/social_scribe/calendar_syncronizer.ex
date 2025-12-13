@@ -70,6 +70,7 @@ defmodule SocialScribe.CalendarSyncronizer do
         Logger.warning(
           "Credential #{credential.id} has no refresh_token. Token expired and cannot be refreshed. User needs to re-authenticate."
         )
+
         {:error, {:no_refresh_token, "Token expired and no refresh token available"}}
       else
         case TokenRefresherApi.refresh_token(credential.refresh_token) do

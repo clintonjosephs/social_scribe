@@ -17,7 +17,9 @@ defmodule SocialScribe.Workers.BotStatusPoller do
     end
 
     if Enum.any?(done_bots_without_meetings) do
-      Logger.info("Processing #{Enum.count(done_bots_without_meetings)} done bots without meetings...")
+      Logger.info(
+        "Processing #{Enum.count(done_bots_without_meetings)} done bots without meetings..."
+      )
     end
 
     # Process pending bots (check status and update)
@@ -27,7 +29,9 @@ defmodule SocialScribe.Workers.BotStatusPoller do
 
     # Process done bots that don't have meetings yet
     for bot_record <- done_bots_without_meetings do
-      Logger.info("Bot #{bot_record.recall_bot_id} is done but has no meeting record. Creating meeting...")
+      Logger.info(
+        "Bot #{bot_record.recall_bot_id} is done but has no meeting record. Creating meeting..."
+      )
 
       # Get fresh bot info from API
       case RecallApi.get_bot(bot_record.recall_bot_id) do
@@ -35,7 +39,9 @@ defmodule SocialScribe.Workers.BotStatusPoller do
           process_completed_bot(bot_record, bot_api_info)
 
         {:error, reason} ->
-          Logger.error("Failed to get bot info for #{bot_record.recall_bot_id}: #{inspect(reason)}")
+          Logger.error(
+            "Failed to get bot info for #{bot_record.recall_bot_id}: #{inspect(reason)}"
+          )
       end
     end
 
@@ -53,6 +59,7 @@ defmodule SocialScribe.Workers.BotStatusPoller do
           Logger.error(
             "Bot #{bot_record.recall_bot_id} returned HTTP #{http_status}: #{inspect(bot_api_info)}"
           )
+
           Bots.update_recall_bot(bot_record, %{status: "polling_error"})
         else
           status_changes = Map.get(bot_api_info, :status_changes, [])
@@ -67,12 +74,17 @@ defmodule SocialScribe.Workers.BotStatusPoller do
                 # Check if bot was cancelled or never started
                 # If recordings exist but are empty, bot might be done
                 recordings = Map.get(bot_api_info, :recordings, [])
+
                 if Enum.empty?(recordings) do
-                  Logger.debug("Bot #{bot_record.recall_bot_id} has no status_changes and no recordings - keeping as pending")
+                  Logger.debug(
+                    "Bot #{bot_record.recall_bot_id} has no status_changes and no recordings - keeping as pending"
+                  )
+
                   "pending"
                 else
                   # Has recordings but no status changes - check recording status
                   recording = List.first(recordings)
+
                   case Map.get(recording, :status) do
                     %{code: code} -> code
                     _ -> "pending"
@@ -90,7 +102,10 @@ defmodule SocialScribe.Workers.BotStatusPoller do
                 end
 
               true ->
-                Logger.warning("Bot #{bot_record.recall_bot_id} has unexpected status_changes format: #{inspect(status_changes)}")
+                Logger.warning(
+                  "Bot #{bot_record.recall_bot_id} has unexpected status_changes format: #{inspect(status_changes)}"
+                )
+
                 "pending"
             end
 
@@ -142,7 +157,8 @@ defmodule SocialScribe.Workers.BotStatusPoller do
 
           # Create async transcript
           case RecallApi.create_transcript(recording_id) do
-            {:ok, %Tesla.Env{status: status, body: transcript_response}} when status in 200..299 ->
+            {:ok, %Tesla.Env{status: status, body: transcript_response}}
+            when status in 200..299 ->
               transcript_id = Map.get(transcript_response, :id)
               Logger.info("Transcript creation initiated. Transcript ID: #{transcript_id}")
 
@@ -153,7 +169,10 @@ defmodule SocialScribe.Workers.BotStatusPoller do
                   create_meeting_with_transcript(bot_record, bot_api_info, transcript_data)
 
                 {:pending, transcript_id} ->
-                  Logger.info("Transcript #{transcript_id} is still processing. Creating meeting without transcript for now.")
+                  Logger.info(
+                    "Transcript #{transcript_id} is still processing. Creating meeting without transcript for now."
+                  )
+
                   # Create meeting record, transcript will be fetched later
                   create_meeting_without_transcript(bot_record, bot_api_info)
 
@@ -171,7 +190,10 @@ defmodule SocialScribe.Workers.BotStatusPoller do
               create_meeting_without_transcript(bot_record, bot_api_info)
           end
         else
-          Logger.info("Recording #{recording_id} is not done yet (status: #{Map.get(recording_status, :code)}). Waiting...")
+          Logger.info(
+            "Recording #{recording_id} is not done yet (status: #{Map.get(recording_status, :code)}). Waiting..."
+          )
+
           # Recording not done yet, skip for now
           :ok
         end
@@ -192,9 +214,15 @@ defmodule SocialScribe.Workers.BotStatusPoller do
                 get_in(transcript_info, [:results]) ||
                 get_in(transcript_info, [:data])
 
-            if transcript_data && (is_list(transcript_data) || (is_map(transcript_data) && Map.has_key?(transcript_data, :results))) do
+            if transcript_data &&
+                 (is_list(transcript_data) ||
+                    (is_map(transcript_data) && Map.has_key?(transcript_data, :results))) do
               # Transcript data is already available
-              final_data = if is_list(transcript_data), do: transcript_data, else: Map.get(transcript_data, :results, [])
+              final_data =
+                if is_list(transcript_data),
+                  do: transcript_data,
+                  else: Map.get(transcript_data, :results, [])
+
               {:ok, final_data}
             else
               # Try to download from URL
@@ -210,7 +238,10 @@ defmodule SocialScribe.Workers.BotStatusPoller do
                     {:error, :download_failed}
                 end
               else
-                Logger.warning("Transcript #{transcript_id} is done but has no download URL or inline data")
+                Logger.warning(
+                  "Transcript #{transcript_id} is done but has no download URL or inline data"
+                )
+
                 {:error, :no_download_url}
               end
             end
@@ -251,7 +282,9 @@ defmodule SocialScribe.Workers.BotStatusPoller do
   defp create_meeting_with_transcript(bot_record, bot_api_info, transcript_data) do
     case Meetings.create_meeting_from_recall_data(bot_record, bot_api_info, transcript_data) do
       {:ok, meeting} ->
-        Logger.info("Successfully created meeting record #{meeting.id} from bot #{bot_record.recall_bot_id}")
+        Logger.info(
+          "Successfully created meeting record #{meeting.id} from bot #{bot_record.recall_bot_id}"
+        )
 
         # Reset transcript attempts if we have transcript data, otherwise set to 1
         has_transcript_data = Enum.any?(transcript_data || [])
@@ -270,7 +303,10 @@ defmodule SocialScribe.Workers.BotStatusPoller do
         {:ok, meeting}
 
       {:error, reason} ->
-        Logger.error("Failed to create meeting record from bot #{bot_record.recall_bot_id}: #{inspect(reason)}")
+        Logger.error(
+          "Failed to create meeting record from bot #{bot_record.recall_bot_id}: #{inspect(reason)}"
+        )
+
         {:error, reason}
     end
   end

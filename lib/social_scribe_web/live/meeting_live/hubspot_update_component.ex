@@ -26,8 +26,8 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           Here are suggested updates to sync with your integrations based on this meeting.
         </p>
       </div>
-
-      <!-- Contact Selection -->
+      
+    <!-- Contact Selection -->
       <div class="mb-6">
         <label class="block text-sm font-medium text-slate-700 mb-2">
           Select Contact
@@ -72,8 +72,8 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
             </div>
           <% end %>
         </div>
-
-        <!-- Contact Dropdown -->
+        
+    <!-- Contact Dropdown -->
         <%= if @show_contact_dropdown && length(@contact_results) > 0 do %>
           <div class="mt-2 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
             <ul class="py-1">
@@ -84,17 +84,19 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                 phx-target={@myself}
                 class="px-4 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
               >
-                <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm"
-                     style="background-color: rgba(9, 114, 242, 0.1); color: rgb(9, 114, 242);">
-                  <%= get_contact_initials(contact) %>
+                <div
+                  class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm"
+                  style="background-color: rgba(9, 114, 242, 0.1); color: rgb(9, 114, 242);"
+                >
+                  {get_contact_initials(contact)}
                 </div>
                 <div class="flex-1">
                   <div class="font-medium text-slate-700">
-                    <%= get_contact_display_name(contact) %>
+                    {get_contact_display_name(contact)}
                   </div>
                   <%= if get_contact_email(contact) do %>
                     <div class="text-sm text-slate-500">
-                      <%= get_contact_email(contact) %>
+                      {get_contact_email(contact)}
                     </div>
                   <% end %>
                 </div>
@@ -102,29 +104,31 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
             </ul>
           </div>
         <% end %>
-
-        <!-- Selected Contact Display -->
+        
+    <!-- Selected Contact Display -->
         <%= if @selected_contact do %>
           <div class="mt-3 flex items-center gap-2 p-3 bg-slate-50 rounded-md">
-            <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-semibold"
-                 style="background-color: rgba(9, 114, 242, 0.1); color: rgb(9, 114, 242);">
-              <%= get_contact_initials(@selected_contact) %>
+            <div
+              class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-semibold"
+              style="background-color: rgba(9, 114, 242, 0.1); color: rgb(9, 114, 242);"
+            >
+              {get_contact_initials(@selected_contact)}
             </div>
             <div class="flex-1">
               <div class="font-medium text-slate-700">
-                <%= get_contact_display_name(@selected_contact) %>
+                {get_contact_display_name(@selected_contact)}
               </div>
               <%= if get_contact_email(@selected_contact) do %>
                 <div class="text-sm text-slate-500">
-                  <%= get_contact_email(@selected_contact) %>
+                  {get_contact_email(@selected_contact)}
                 </div>
               <% end %>
             </div>
           </div>
         <% end %>
       </div>
-
-      <!-- Suggestions Loading -->
+      
+    <!-- Suggestions Loading -->
       <%= if @generating_suggestions do %>
         <div class="text-center py-8">
           <svg
@@ -134,14 +138,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
             fill="none"
             viewBox="0 0 24 24"
           >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            >
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
             </circle>
             <path
               class="opacity-75"
@@ -153,13 +150,16 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           <p class="text-slate-600">Generating suggestions...</p>
         </div>
       <% end %>
-
-      <!-- Suggestions Display -->
+      
+    <!-- Suggestions Display -->
       <%= if @suggestions && length(@suggestions) > 0 do %>
         <div class="space-y-4 mb-6">
           <!-- Group suggestions by object/field group -->
           <%= for {group_name, group_suggestions} <- group_suggestions(@suggestions) do %>
-            <div class="border border-slate-200 rounded-lg p-4" style="background-color: rgb(245, 248, 247);">
+            <div
+              class="border border-slate-200 rounded-lg p-4"
+              style="background-color: rgb(245, 248, 247);"
+            >
               <!-- Group Header -->
               <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2">
@@ -173,12 +173,20 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                     style="accent-color: rgb(9, 114, 242);"
                   />
                   <h3 class="text-base font-semibold text-slate-700">
-                    <%= group_name %>
+                    {group_name}
                   </h3>
                 </div>
                 <div class="flex items-center gap-3">
-                  <span class="text-xs px-2 py-1 rounded" style="background-color: rgb(225, 229, 233); color: rgb(71, 85, 105);">
-                    <%= count_selected_in_group(group_suggestions, @selected_updates) %> update<%= if count_selected_in_group(group_suggestions, @selected_updates) != 1, do: "s", else: "" %> selected
+                  <span
+                    class="text-xs px-2 py-1 rounded"
+                    style="background-color: rgb(225, 229, 233); color: rgb(71, 85, 105);"
+                  >
+                    {count_selected_in_group(group_suggestions, @selected_updates)} update{if count_selected_in_group(
+                                                                                                group_suggestions,
+                                                                                                @selected_updates
+                                                                                              ) != 1,
+                                                                                              do: "s",
+                                                                                              else: ""} selected
                   </span>
                   <button
                     phx-click="toggle-group-details"
@@ -194,14 +202,14 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                   </button>
                 </div>
               </div>
-
-              <!-- Group Suggestions -->
+              
+    <!-- Group Suggestions -->
               <%= if Map.get(@expanded_groups, group_name, true) do %>
                 <div class="space-y-3">
                   <%= for suggestion <- group_suggestions do %>
                     <div>
                       <div class="text-sm font-medium text-slate-700 mb-2 ml-7">
-                        <%= suggestion.field_label %>
+                        {suggestion.field_label}
                       </div>
                       <div class="flex items-center gap-3">
                         <input
@@ -220,7 +228,10 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                           readonly
                           class={[
                             "flex-1 px-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded text-slate-600",
-                            if(suggestion.existing_value && suggestion.existing_value != "", do: "line-through", else: "")
+                            if(suggestion.existing_value && suggestion.existing_value != "",
+                              do: "line-through",
+                              else: ""
+                            )
                           ]}
                         />
                         <!-- Arrow -->
@@ -248,15 +259,11 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
 
                       <%= if suggestion.transcript_reference do %>
                         <p class="text-xs text-slate-500 mb-2">
-                          <%= suggestion.transcript_reference %>
+                          {suggestion.transcript_reference}
                         </p>
                       <% end %>
 
-                      <a
-                        href="#"
-                        class="text-xs hover:underline"
-                        style="color: rgb(9, 114, 242);"
-                      >
+                      <a href="#" class="text-xs hover:underline" style="color: rgb(9, 114, 242);">
                         Update mapping
                       </a>
                     </div>
@@ -267,21 +274,22 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           <% end %>
         </div>
       <% end %>
-
-      <!-- Empty State -->
+      
+    <!-- Empty State -->
       <%= if @selected_contact && @suggestions && length(@suggestions) == 0 && !@generating_suggestions do %>
         <div class="text-center py-8 text-slate-500">
           <p>No suggested updates found for this contact.</p>
         </div>
       <% end %>
-
-      <!-- Footer -->
+      
+    <!-- Footer -->
       <div class="flex items-center justify-between pt-4 -mx-14 px-14 border-t border-slate-200">
         <div class="text-sm text-slate-600">
           <%= if @selected_updates && MapSet.size(@selected_updates) > 0 do %>
-            <%= count_objects(@suggestions, @selected_updates) %> objects,
-            <%= MapSet.size(@selected_updates) %> fields in
-            <%= count_integrations(@suggestions, @selected_updates) %> integrations selected to update
+            {count_objects(@suggestions, @selected_updates)} objects, {MapSet.size(@selected_updates)} fields in {count_integrations(
+              @suggestions,
+              @selected_updates
+            )} integrations selected to update
           <% else %>
             Select updates to sync
           <% end %>
@@ -307,10 +315,12 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                 else: "bg-slate-300 text-slate-500 cursor-not-allowed"
               )
             ]}
-            style={if(@selected_contact && MapSet.size(@selected_updates) > 0 && !@updating,
-              do: "background-color: rgb(34, 197, 94);",
-              else: ""
-            )}
+            style={
+              if(@selected_contact && MapSet.size(@selected_updates) > 0 && !@updating,
+                do: "background-color: rgb(34, 197, 94);",
+                else: ""
+              )
+            }
           >
             <%= if @updating do %>
               Updating...
@@ -323,7 +333,6 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
     </div>
     """
   end
-
 
   @impl true
   def handle_event("search-contacts", %{"key" => "Enter"}, socket) do
@@ -347,7 +356,9 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
       Enum.find(socket.assigns.contact_results, fn c -> c["id"] == contact_id end)
 
     if contact do
-      Logger.info("[HubSpot Component] Contact found: #{inspect(get_contact_display_name(contact))}")
+      Logger.info(
+        "[HubSpot Component] Contact found: #{inspect(get_contact_display_name(contact))}"
+      )
 
       socket =
         socket
@@ -365,19 +376,31 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
       meeting_id = socket.assigns.meeting.id
       credential = socket.assigns.hubspot_credential
 
-      Logger.info("[HubSpot Component] Starting async task - meeting_id: #{meeting_id}, component_id: #{component_id}, socket.id: #{socket.id}, has_credential: #{not is_nil(credential)}")
+      Logger.info(
+        "[HubSpot Component] Starting async task - meeting_id: #{meeting_id}, component_id: #{component_id}, socket.id: #{socket.id}, has_credential: #{not is_nil(credential)}"
+      )
 
       Task.start(fn ->
         Logger.info("[HubSpot Component] Task started for contact_id: #{contact_id}")
         result = generate_suggestions_async(meeting_id, credential, contact_id)
-        Logger.info("[HubSpot Component] Task completed with result: #{inspect(result, limit: 2)}")
+
+        Logger.info(
+          "[HubSpot Component] Task completed with result: #{inspect(result, limit: 2)}"
+        )
+
         send(pid, {:suggestions_generated, component_id, result})
-        Logger.info("[HubSpot Component] Message sent to pid: #{inspect(pid)} with component_id: #{component_id}")
+
+        Logger.info(
+          "[HubSpot Component] Message sent to pid: #{inspect(pid)} with component_id: #{component_id}"
+        )
       end)
 
       {:noreply, socket}
     else
-      Logger.warning("[HubSpot Component] Contact not found in results for contact_id: #{contact_id}")
+      Logger.warning(
+        "[HubSpot Component] Contact not found in results for contact_id: #{contact_id}"
+      )
+
       {:noreply, socket}
     end
   end
@@ -432,7 +455,12 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
 
   def handle_event("update-hubspot", _params, socket) do
     if socket.assigns.selected_contact_id && MapSet.size(socket.assigns.selected_updates) > 0 do
-      send(self(), {:update_hubspot_contact, socket.assigns.selected_contact_id, socket.assigns.selected_updates, socket.assigns.suggestions})
+      send(
+        self(),
+        {:update_hubspot_contact, socket.assigns.selected_contact_id,
+         socket.assigns.selected_updates, socket.assigns.suggestions}
+      )
+
       {:noreply, assign(socket, updating: true)}
     else
       {:noreply, socket}
@@ -442,7 +470,9 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
   # Helper function to generate suggestions asynchronously
   # Takes extracted values instead of socket to avoid process-specific issues
   defp generate_suggestions_async(meeting_id, credential, contact_id) do
-    Logger.info("[HubSpot Component] generate_suggestions_async called - meeting_id: #{meeting_id}, contact_id: #{contact_id}")
+    Logger.info(
+      "[HubSpot Component] generate_suggestions_async called - meeting_id: #{meeting_id}, contact_id: #{contact_id}"
+    )
 
     case credential do
       nil ->
@@ -458,25 +488,43 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           Logger.error("[HubSpot Component] Meeting not found for id: #{meeting_id}")
           {:error, :meeting_not_found}
         else
-          Logger.info("[HubSpot Component] Meeting found - has_transcript: #{not is_nil(meeting.meeting_transcript)}, has_participants: #{length(meeting.meeting_participants || [])}")
+          Logger.info(
+            "[HubSpot Component] Meeting found - has_transcript: #{not is_nil(meeting.meeting_transcript)}, has_participants: #{length(meeting.meeting_participants || [])}"
+          )
 
           Logger.info("[HubSpot Component] Fetching HubSpot contact...")
+
           case HubSpotApi.get_contact_with_credential(credential, contact_id) do
             {:ok, contact} ->
-              Logger.info("[HubSpot Component] Contact fetched successfully, fetching available properties...")
+              Logger.info(
+                "[HubSpot Component] Contact fetched successfully, fetching available properties..."
+              )
 
               # Fetch available HubSpot properties to validate suggestions
               available_properties =
                 case HubSpotApi.get_contact_properties_with_credential(credential) do
-                  {:ok, props} -> props
+                  {:ok, props} ->
+                    props
+
                   {:error, _} ->
-                    Logger.warning("[HubSpot Component] Failed to fetch properties, proceeding without validation")
+                    Logger.warning(
+                      "[HubSpot Component] Failed to fetch properties, proceeding without validation"
+                    )
+
                     nil
                 end
 
-              Logger.info("[HubSpot Component] Generating suggestions with #{if available_properties, do: length(available_properties), else: 0} available properties...")
-              result = HubSpotAISuggestions.generate_suggestions(meeting, contact, available_properties)
-              Logger.info("[HubSpot Component] Suggestions generated - result: #{inspect(result, limit: 1)}")
+              Logger.info(
+                "[HubSpot Component] Generating suggestions with #{if available_properties, do: length(available_properties), else: 0} available properties..."
+              )
+
+              result =
+                HubSpotAISuggestions.generate_suggestions(meeting, contact, available_properties)
+
+              Logger.info(
+                "[HubSpot Component] Suggestions generated - result: #{inspect(result, limit: 1)}"
+              )
+
               result
 
             {:error, reason} ->
@@ -492,12 +540,17 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
     # Ensure assigns is always a map
     assigns = assigns || %{}
 
-    Logger.info("[HubSpot Component] update/2 called - socket.id: #{socket.id}, has_suggestions_result: #{Map.has_key?(assigns, :suggestions_result)}, has_meeting: #{Map.has_key?(assigns, :meeting)}, assigns keys: #{inspect(Map.keys(assigns))}")
+    Logger.info(
+      "[HubSpot Component] update/2 called - socket.id: #{socket.id}, has_suggestions_result: #{Map.has_key?(assigns, :suggestions_result)}, has_meeting: #{Map.has_key?(assigns, :meeting)}, assigns keys: #{inspect(Map.keys(assigns))}"
+    )
 
     # Handle suggestions result if present
     # Map.pop returns {value, updated_map}, so we need to get the value first, then the updated map
     {suggestions_result, assigns} = Map.pop(assigns, :suggestions_result, nil)
-    Logger.info("[HubSpot Component] After pop - suggestions_result present: #{not is_nil(suggestions_result)}")
+
+    Logger.info(
+      "[HubSpot Component] After pop - suggestions_result present: #{not is_nil(suggestions_result)}"
+    )
 
     # Ensure meeting has transcript and participants preloaded
     # Use existing meeting from socket if not in assigns (for send_update calls)
@@ -506,9 +559,14 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
         Map.has_key?(assigns, :meeting) && assigns.meeting ->
           Logger.info("[HubSpot Component] Loading meeting from assigns: #{assigns.meeting.id}")
           Meetings.get_meeting_with_details(assigns.meeting.id)
+
         socket.assigns[:meeting] ->
-          Logger.info("[HubSpot Component] Loading meeting from socket: #{socket.assigns.meeting.id}")
+          Logger.info(
+            "[HubSpot Component] Loading meeting from socket: #{socket.assigns.meeting.id}"
+          )
+
           Meetings.get_meeting_with_details(socket.assigns.meeting.id)
+
         true ->
           Logger.warning("[HubSpot Component] No meeting found in assigns or socket")
           nil
@@ -524,31 +582,42 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
       |> assign(:meeting, meeting)
       |> assign_new(:search_query, fn -> socket.assigns[:search_query] || "" end)
       |> assign_new(:contact_results, fn -> socket.assigns[:contact_results] || [] end)
-      |> assign_new(:show_contact_dropdown, fn -> socket.assigns[:show_contact_dropdown] || false end)
+      |> assign_new(:show_contact_dropdown, fn ->
+        socket.assigns[:show_contact_dropdown] || false
+      end)
       |> assign_new(:searching_contacts, fn -> socket.assigns[:searching_contacts] || false end)
       |> assign_new(:selected_contact, fn -> socket.assigns[:selected_contact] end)
       |> assign_new(:selected_contact_id, fn -> socket.assigns[:selected_contact_id] end)
       |> assign_new(:suggestions, fn -> socket.assigns[:suggestions] || [] end)
-      |> assign_new(:generating_suggestions, fn -> socket.assigns[:generating_suggestions] || false end)
+      |> assign_new(:generating_suggestions, fn ->
+        socket.assigns[:generating_suggestions] || false
+      end)
       |> assign_new(:selected_updates, fn -> socket.assigns[:selected_updates] || MapSet.new() end)
       |> assign_new(:expanded_groups, fn -> socket.assigns[:expanded_groups] || %{} end)
       |> assign_new(:updating, fn -> socket.assigns[:updating] || false end)
       |> assign_new(:hubspot_credential, fn ->
         socket.assigns[:hubspot_credential] ||
-        (if current_user, do: get_hubspot_credential(current_user), else: nil)
+          if current_user, do: get_hubspot_credential(current_user), else: nil
       end)
 
     # Process suggestions result if present
     socket =
       if suggestions_result do
-        Logger.info("[HubSpot Component] Processing suggestions_result - socket.id: #{socket.id}, suggestions_result: #{inspect(suggestions_result, limit: 1)}")
+        Logger.info(
+          "[HubSpot Component] Processing suggestions_result - socket.id: #{socket.id}, suggestions_result: #{inspect(suggestions_result, limit: 1)}"
+        )
+
         {component_id, result} = suggestions_result
-        Logger.info("[HubSpot Component] Component ID match check - expected: #{component_id}, actual socket.id: #{socket.id}, match: #{socket.id == component_id}")
+
+        Logger.info(
+          "[HubSpot Component] Component ID match check - expected: #{component_id}, actual socket.id: #{socket.id}, match: #{socket.id == component_id}"
+        )
 
         # Only process if this message is for this component instance
         # socket.id is the component's ID (e.g., "hubspot-update-5")
         if socket.id == component_id do
           Logger.info("[HubSpot Component] Component IDs match, processing result...")
+
           case result do
             {:ok, suggestions} ->
               Logger.info("[HubSpot Component] Success! Got #{length(suggestions)} suggestions")
@@ -564,7 +633,10 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                 |> Enum.map(fn {group_name, _} -> {group_name, true} end)
                 |> Map.new()
 
-              Logger.info("[HubSpot Component] Assigning suggestions to socket - count: #{length(suggestions)}")
+              Logger.info(
+                "[HubSpot Component] Assigning suggestions to socket - count: #{length(suggestions)}"
+              )
+
               socket
               |> assign(suggestions: suggestions)
               |> assign(selected_updates: selected_updates)
@@ -572,8 +644,12 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
               |> assign(generating_suggestions: false)
 
             {:error, reason} ->
-              Logger.error("[HubSpot Component] Failed to generate suggestions: #{inspect(reason)}")
+              Logger.error(
+                "[HubSpot Component] Failed to generate suggestions: #{inspect(reason)}"
+              )
+
               error_message = format_error_message(reason)
+
               socket
               |> put_flash(:error, error_message)
               |> assign(generating_suggestions: false)
@@ -581,12 +657,21 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
               |> assign(:selected_contact_id, socket.assigns.selected_contact_id)
           end
         else
-          Logger.warning("[HubSpot Component] Component ID mismatch - ignoring result. Expected: #{component_id}, Got: #{socket.id}")
-          Logger.warning("[HubSpot Component] However, processing anyway since we have a result and component might have re-mounted")
+          Logger.warning(
+            "[HubSpot Component] Component ID mismatch - ignoring result. Expected: #{component_id}, Got: #{socket.id}"
+          )
+
+          Logger.warning(
+            "[HubSpot Component] However, processing anyway since we have a result and component might have re-mounted"
+          )
+
           # Process anyway if we have a result - component might have re-mounted
           case result do
             {:ok, suggestions} ->
-              Logger.info("[HubSpot Component] Processing suggestions despite ID mismatch - Got #{length(suggestions)} suggestions")
+              Logger.info(
+                "[HubSpot Component] Processing suggestions despite ID mismatch - Got #{length(suggestions)} suggestions"
+              )
+
               selected_updates =
                 suggestions
                 |> Enum.map(& &1.field_name)
@@ -603,6 +688,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
               |> assign(selected_updates: selected_updates)
               |> assign(expanded_groups: expanded_groups)
               |> assign(generating_suggestions: false)
+
             _ ->
               socket
               |> assign(generating_suggestions: false)
@@ -613,13 +699,21 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
         socket
       end
 
-    Logger.info("[HubSpot Component] Final socket state - generating_suggestions: #{socket.assigns[:generating_suggestions]}, suggestions count: #{length(socket.assigns[:suggestions] || [])}")
+    Logger.info(
+      "[HubSpot Component] Final socket state - generating_suggestions: #{socket.assigns[:generating_suggestions]}, suggestions count: #{length(socket.assigns[:suggestions] || [])}"
+    )
+
     {:ok, socket}
   end
 
-  defp format_error_message(:no_credential), do: "No HubSpot account connected. Please connect a HubSpot account in settings."
+  defp format_error_message(:no_credential),
+    do: "No HubSpot account connected. Please connect a HubSpot account in settings."
+
   defp format_error_message(:meeting_not_found), do: "Meeting not found."
-  defp format_error_message({:fetch_contact_failed, reason}), do: "Failed to fetch contact details: #{inspect(reason)}"
+
+  defp format_error_message({:fetch_contact_failed, reason}),
+    do: "Failed to fetch contact details: #{inspect(reason)}"
+
   defp format_error_message(reason), do: "Failed to generate suggestions: #{inspect(reason)}"
 
   # Helper functions

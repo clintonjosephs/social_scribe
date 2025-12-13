@@ -17,15 +17,15 @@ defmodule SocialScribeWeb.MeetingLive.Show do
       |> length()
       |> Kernel.>(0)
 
-      automation_results = Automations.list_automation_results_for_meeting(meeting_id)
+    automation_results = Automations.list_automation_results_for_meeting(meeting_id)
 
-      # Check if user has HubSpot account connected
-      has_hubspot_account =
-        Accounts.list_user_credentials(socket.assigns.current_user, provider: "hubspot")
-        |> length()
-        |> Kernel.>(0)
+    # Check if user has HubSpot account connected
+    has_hubspot_account =
+      Accounts.list_user_credentials(socket.assigns.current_user, provider: "hubspot")
+      |> length()
+      |> Kernel.>(0)
 
-      if meeting.calendar_event.user_id != socket.assigns.current_user.id do
+    if meeting.calendar_event.user_id != socket.assigns.current_user.id do
       socket =
         socket
         |> put_flash(:error, "You do not have permission to view this meeting.")
@@ -264,7 +264,9 @@ defmodule SocialScribeWeb.MeetingLive.Show do
                   {:noreply, socket}
 
                 {:ok, %Tesla.Env{status: status, body: error_body}} ->
-                  Logger.error("Failed to create transcript: HTTP #{status} - #{inspect(error_body)}")
+                  Logger.error(
+                    "Failed to create transcript: HTTP #{status} - #{inspect(error_body)}"
+                  )
 
                   socket =
                     socket
@@ -317,7 +319,8 @@ defmodule SocialScribeWeb.MeetingLive.Show do
         Map.get(socket.assigns.meeting.meeting_transcript.content || %{}, "data", []) != []
 
     if has_transcript do
-      {:noreply, push_patch(socket, to: ~p"/dashboard/meetings/#{socket.assigns.meeting}/hubspot_update")}
+      {:noreply,
+       push_patch(socket, to: ~p"/dashboard/meetings/#{socket.assigns.meeting}/hubspot_update")}
     else
       {:noreply,
        socket
@@ -342,12 +345,17 @@ defmodule SocialScribeWeb.MeetingLive.Show do
   end
 
   def handle_info({:suggestions_generated, component_id, result}, socket) do
-    Logger.info("[Show LiveView] Received suggestions_generated message - component_id: #{component_id}, result: #{inspect(result, limit: 1)}")
+    Logger.info(
+      "[Show LiveView] Received suggestions_generated message - component_id: #{component_id}, result: #{inspect(result, limit: 1)}"
+    )
 
     # Forward the message to the component with all required assigns
     # component_id should be "hubspot-update-5" (the component's ID)
     component_update_id = "hubspot-update-#{socket.assigns.meeting.id}"
-    Logger.info("[Show LiveView] Calling send_update for component #{component_update_id}, received component_id: #{component_id}")
+
+    Logger.info(
+      "[Show LiveView] Calling send_update for component #{component_update_id}, received component_id: #{component_id}"
+    )
 
     send_update(SocialScribeWeb.MeetingLive.HubSpotUpdateComponent,
       id: component_update_id,
@@ -355,6 +363,7 @@ defmodule SocialScribeWeb.MeetingLive.Show do
       current_user: socket.assigns.current_user,
       suggestions_result: {component_update_id, result}
     )
+
     Logger.info("[Show LiveView] send_update completed")
 
     {:noreply, socket}
@@ -387,10 +396,22 @@ defmodule SocialScribeWeb.MeetingLive.Show do
             |> MapSet.new()
 
           # Standard fields that always exist
-          standard_fields = MapSet.new([
-            "firstname", "lastname", "email", "phone", "mobilephone", "company",
-            "jobtitle", "website", "address", "city", "state", "zip", "country"
-          ])
+          standard_fields =
+            MapSet.new([
+              "firstname",
+              "lastname",
+              "email",
+              "phone",
+              "mobilephone",
+              "company",
+              "jobtitle",
+              "website",
+              "address",
+              "city",
+              "state",
+              "zip",
+              "country"
+            ])
 
           valid_properties = MapSet.union(property_names, standard_fields)
 
@@ -451,19 +472,24 @@ defmodule SocialScribeWeb.MeetingLive.Show do
             missing_properties
             |> Enum.map(fn suggestion ->
               case HubSpotApi.ensure_property_exists_with_credential(
-                credential,
-                suggestion.field_name,
-                suggestion.field_label,
-                suggestion.suggested_value
-              ) do
+                     credential,
+                     suggestion.field_name,
+                     suggestion.field_label,
+                     suggestion.suggested_value
+                   ) do
                 {:ok, :created} ->
                   Logger.info("Created HubSpot property: #{suggestion.field_name}")
                   {:ok, suggestion.field_name}
+
                 {:ok, :exists} ->
                   Logger.info("Property already exists: #{suggestion.field_name}")
                   {:ok, suggestion.field_name}
+
                 {:error, reason} ->
-                  Logger.error("Failed to create property #{suggestion.field_name}: #{inspect(reason)}")
+                  Logger.error(
+                    "Failed to create property #{suggestion.field_name}: #{inspect(reason)}"
+                  )
+
                   {:error, suggestion.field_name, reason}
               end
             end)
@@ -481,11 +507,16 @@ defmodule SocialScribeWeb.MeetingLive.Show do
 
             {:noreply,
              socket
-             |> put_flash(:error, "Failed to create some custom properties: #{fields_list}. Please try again or create them manually in HubSpot.")}
+             |> put_flash(
+               :error,
+               "Failed to create some custom properties: #{fields_list}. Please try again or create them manually in HubSpot."
+             )}
           end
 
         {:error, reason} ->
-          Logger.warning("Failed to fetch properties, attempting update anyway: #{inspect(reason)}")
+          Logger.warning(
+            "Failed to fetch properties, attempting update anyway: #{inspect(reason)}"
+          )
 
           # Build update properties from selected suggestions (validate emails)
           update_properties =
@@ -528,6 +559,7 @@ defmodule SocialScribeWeb.MeetingLive.Show do
   defp validate_email(email) when is_binary(email) do
     # Basic email validation - check for @ symbol and basic format
     trimmed = String.trim(email)
+
     if Regex.match?(~r/^[^\s]+@[^\s]+\.[^\s]+$/, trimmed) do
       trimmed
     else
@@ -540,78 +572,105 @@ defmodule SocialScribeWeb.MeetingLive.Show do
   defp update_contact_with_retry(credential, contact_id, update_properties, socket) do
     # Update contact (token will be refreshed automatically if needed)
     case HubSpotApi.update_contact_with_credential(credential, contact_id, update_properties) do
-        {:ok, _updated_contact} ->
-          Logger.info("Successfully updated HubSpot contact #{contact_id}")
+      {:ok, _updated_contact} ->
+        Logger.info("Successfully updated HubSpot contact #{contact_id}")
 
-          {:noreply,
-           socket
-           |> put_flash(:info, "Successfully updated HubSpot contact!")
-           |> push_patch(to: ~p"/dashboard/meetings/#{socket.assigns.meeting}")}
+        {:noreply,
+         socket
+         |> put_flash(:info, "Successfully updated HubSpot contact!")
+         |> push_patch(to: ~p"/dashboard/meetings/#{socket.assigns.meeting}")}
 
-        {:error, {:api_error, 400, error_body}} ->
-          Logger.error("Failed to update HubSpot contact: #{inspect(error_body)}")
+      {:error, {:api_error, 400, error_body}} ->
+        Logger.error("Failed to update HubSpot contact: #{inspect(error_body)}")
 
-          # Extract different types of errors
-          errors = Map.get(error_body, "errors", [])
+        # Extract different types of errors
+        errors = Map.get(error_body, "errors", [])
 
-          read_only_fields =
-            errors
-            |> Enum.filter(&(&1["code"] == "READ_ONLY_VALUE"))
-            |> Enum.map(fn error ->
-              case error do
-                %{"context" => %{"propertyName" => [field_name]}} -> field_name
-                %{"context" => %{"propertyName" => field_name}} when is_binary(field_name) -> field_name
-                _ -> nil
-              end
-            end)
-            |> Enum.filter(&(!is_nil(&1)))
+        read_only_fields =
+          errors
+          |> Enum.filter(&(&1["code"] == "READ_ONLY_VALUE"))
+          |> Enum.map(fn error ->
+            case error do
+              %{"context" => %{"propertyName" => [field_name]}} ->
+                field_name
 
-          invalid_emails =
-            errors
-            |> Enum.filter(&(&1["code"] == "INVALID_EMAIL"))
-            |> Enum.map(fn error ->
-              case error do
-                %{"context" => %{"propertyName" => [field_name]}} -> field_name
-                %{"context" => %{"propertyName" => field_name}} when is_binary(field_name) -> field_name
-                _ -> nil
-              end
-            end)
-            |> Enum.filter(&(!is_nil(&1)))
+              %{"context" => %{"propertyName" => field_name}} when is_binary(field_name) ->
+                field_name
 
-          missing_fields =
-            errors
-            |> Enum.filter(&(&1["code"] == "PROPERTY_DOESNT_EXIST"))
-            |> Enum.map(fn error ->
-              case error do
-                %{"context" => %{"propertyName" => [field_name]}} -> field_name
-                %{"context" => %{"propertyName" => field_name}} when is_binary(field_name) -> field_name
-                _ -> nil
-              end
-            end)
-            |> Enum.filter(&(!is_nil(&1)))
-
-          error_parts = []
-          error_parts = if Enum.empty?(read_only_fields), do: error_parts, else: ["Read-only fields: #{Enum.join(read_only_fields, ", ")}"]
-          error_parts = if Enum.empty?(invalid_emails), do: error_parts, else: ["Invalid email format: #{Enum.join(invalid_emails, ", ")}"]
-          error_parts = if Enum.empty?(missing_fields), do: error_parts, else: ["Missing fields: #{Enum.join(missing_fields, ", ")}"]
-
-          error_message =
-            if Enum.empty?(error_parts) do
-              "Failed to update HubSpot contact. Please check the values and try again."
-            else
-              "Failed to update HubSpot contact. " <> Enum.join(error_parts, ". ")
+              _ ->
+                nil
             end
+          end)
+          |> Enum.filter(&(!is_nil(&1)))
 
-          {:noreply,
-           socket
-           |> put_flash(:error, error_message)}
+        invalid_emails =
+          errors
+          |> Enum.filter(&(&1["code"] == "INVALID_EMAIL"))
+          |> Enum.map(fn error ->
+            case error do
+              %{"context" => %{"propertyName" => [field_name]}} ->
+                field_name
 
-        {:error, reason} ->
-          Logger.error("Failed to update HubSpot contact: #{inspect(reason)}")
+              %{"context" => %{"propertyName" => field_name}} when is_binary(field_name) ->
+                field_name
 
-          {:noreply,
-           socket
-           |> put_flash(:error, "Failed to update HubSpot contact. Please try again.")}
+              _ ->
+                nil
+            end
+          end)
+          |> Enum.filter(&(!is_nil(&1)))
+
+        missing_fields =
+          errors
+          |> Enum.filter(&(&1["code"] == "PROPERTY_DOESNT_EXIST"))
+          |> Enum.map(fn error ->
+            case error do
+              %{"context" => %{"propertyName" => [field_name]}} ->
+                field_name
+
+              %{"context" => %{"propertyName" => field_name}} when is_binary(field_name) ->
+                field_name
+
+              _ ->
+                nil
+            end
+          end)
+          |> Enum.filter(&(!is_nil(&1)))
+
+        error_parts = []
+
+        error_parts =
+          if Enum.empty?(read_only_fields),
+            do: error_parts,
+            else: ["Read-only fields: #{Enum.join(read_only_fields, ", ")}"]
+
+        error_parts =
+          if Enum.empty?(invalid_emails),
+            do: error_parts,
+            else: ["Invalid email format: #{Enum.join(invalid_emails, ", ")}"]
+
+        error_parts =
+          if Enum.empty?(missing_fields),
+            do: error_parts,
+            else: ["Missing fields: #{Enum.join(missing_fields, ", ")}"]
+
+        error_message =
+          if Enum.empty?(error_parts) do
+            "Failed to update HubSpot contact. Please check the values and try again."
+          else
+            "Failed to update HubSpot contact. " <> Enum.join(error_parts, ". ")
+          end
+
+        {:noreply,
+         socket
+         |> put_flash(:error, error_message)}
+
+      {:error, reason} ->
+        Logger.error("Failed to update HubSpot contact: #{inspect(reason)}")
+
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to update HubSpot contact. Please try again.")}
     end
   end
 
@@ -699,6 +758,7 @@ defmodule SocialScribeWeb.MeetingLive.Show do
 
   defp get_segment_text(segment) do
     words = segment["words"] || []
+
     Enum.map_join(words, " ", fn word ->
       if is_map(word), do: word["text"] || "", else: ""
     end)

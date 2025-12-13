@@ -43,7 +43,8 @@ defmodule SocialScribe.HubSpotAISuggestionsTest do
 
       hubspot_contact = %{"id" => "123", "properties" => %{}}
 
-      result = HubSpotAISuggestions.generate_suggestions(meeting_without_transcript, hubspot_contact)
+      result =
+        HubSpotAISuggestions.generate_suggestions(meeting_without_transcript, hubspot_contact)
 
       assert {:error, :no_transcript} = result
     end
@@ -54,7 +55,8 @@ defmodule SocialScribe.HubSpotAISuggestionsTest do
 
       hubspot_contact = %{"id" => "123", "properties" => %{}}
 
-      result = HubSpotAISuggestions.generate_suggestions(meeting_without_participants, hubspot_contact)
+      result =
+        HubSpotAISuggestions.generate_suggestions(meeting_without_participants, hubspot_contact)
 
       # Should still work, just with no participants in prompt
       assert {:error, :no_participants} = result

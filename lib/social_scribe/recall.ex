@@ -131,9 +131,13 @@ defmodule SocialScribe.Recall do
         results = if is_map(body), do: Map.get(body, :results, []), else: []
 
         if Enum.empty?(results) do
-          Logger.info("Transcript endpoint returned empty results for recording #{recording_id}. Transcript may still be processing.")
+          Logger.info(
+            "Transcript endpoint returned empty results for recording #{recording_id}. Transcript may still be processing."
+          )
         else
-          Logger.info("Successfully fetched transcript with #{length(results)} segments for recording #{recording_id}")
+          Logger.info(
+            "Successfully fetched transcript with #{length(results)} segments for recording #{recording_id}"
+          )
         end
 
         {:ok, response}
@@ -145,7 +149,9 @@ defmodule SocialScribe.Recall do
             results = if is_map(body), do: Map.get(body, :results, []), else: []
 
             if Enum.empty?(results) do
-              Logger.info("Transcript endpoint returned empty results for recording #{recording_id}. Transcript may still be processing.")
+              Logger.info(
+                "Transcript endpoint returned empty results for recording #{recording_id}. Transcript may still be processing."
+              )
             end
 
             {:ok, response}

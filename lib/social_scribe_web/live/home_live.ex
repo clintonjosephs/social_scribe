@@ -51,6 +51,7 @@ defmodule SocialScribeWeb.HomeLive do
       case Bots.create_and_dispatch_bot(socket.assigns.current_user, event) do
         {:ok, _} ->
           Logger.info("Successfully created bot for event #{event.id}")
+
         {:error, reason} ->
           Logger.error("Failed to create bot for event #{event.id}: #{inspect(reason)}")
       end
@@ -58,6 +59,7 @@ defmodule SocialScribeWeb.HomeLive do
       case Bots.cancel_and_delete_bot(event) do
         {:ok, _} ->
           Logger.info("Successfully cancelled bot for event #{event.id}")
+
         {:error, reason} ->
           Logger.error("Failed to cancel bot for event #{event.id}: #{inspect(reason)}")
       end

@@ -78,10 +78,7 @@
             AI-generated follow-up email will appear here once generated.
           </p>
         <% else %>
-          <.simple_form
-            for={@follow_up_email_form}
-            phx-change="validate-follow-up-email"
-          >
+          <.simple_form for={@follow_up_email_form} phx-change="validate-follow-up-email">
             <.input
               field={@follow_up_email_form[:follow_up_email]}
               type="textarea"

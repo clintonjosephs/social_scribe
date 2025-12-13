@@ -40,7 +40,11 @@ defmodule SocialScribe.HubSpotAISuggestions do
         ...
       ]}
   """
-  def generate_suggestions(%Meetings.Meeting{} = meeting, hubspot_contact, available_properties \\ nil) do
+  def generate_suggestions(
+        %Meetings.Meeting{} = meeting,
+        hubspot_contact,
+        available_properties \\ nil
+      ) do
     case Meetings.generate_prompt_for_meeting(meeting) do
       {:error, reason} ->
         {:error, reason}
@@ -100,7 +104,10 @@ defmodule SocialScribe.HubSpotAISuggestions do
         "- #{key}: #{value}"
       end)
 
-    custom_info = if Enum.empty?(custom_fields), do: "", else: "\n\nCustom Fields:\n#{Enum.join(custom_fields, "\n")}"
+    custom_info =
+      if Enum.empty?(custom_fields),
+        do: "",
+        else: "\n\nCustom Fields:\n#{Enum.join(custom_fields, "\n")}"
 
     """
     Current HubSpot Contact Information:
@@ -113,6 +120,7 @@ defmodule SocialScribe.HubSpotAISuggestions do
   # Builds the AI prompt for generating suggestions
   defp build_suggestion_prompt(meeting_prompt, contact_info, available_properties) do
     available_fields_info = format_available_fields(available_properties)
+
     """
     You are analyzing a meeting transcript to identify updates that should be made to a HubSpot CRM contact record.
 
@@ -276,10 +284,22 @@ defmodule SocialScribe.HubSpotAISuggestions do
           end
 
           # Standard HubSpot fields that always exist
-          standard_fields = MapSet.new([
-            "firstname", "lastname", "email", "phone", "mobilephone", "company",
-            "jobtitle", "website", "address", "city", "state", "zip", "country"
-          ])
+          standard_fields =
+            MapSet.new([
+              "firstname",
+              "lastname",
+              "email",
+              "phone",
+              "mobilephone",
+              "company",
+              "jobtitle",
+              "website",
+              "address",
+              "city",
+              "state",
+              "zip",
+              "country"
+            ])
 
           normalized =
             valid_suggestions
@@ -296,13 +316,17 @@ defmodule SocialScribe.HubSpotAISuggestions do
 
               cond do
                 # If it's a standard field and we've already seen it, skip duplicates
-                MapSet.member?(standard_fields, field_name_lower) && MapSet.member?(seen, field_name_lower) ->
+                MapSet.member?(standard_fields, field_name_lower) &&
+                    MapSet.member?(seen, field_name_lower) ->
                   Logger.info("Skipping duplicate standard field '#{field_name}'")
                   {acc, seen}
 
                 # If it's a duplicate custom field, skip it (don't rename - just keep first)
                 MapSet.member?(seen, field_name_lower) ->
-                  Logger.warning("Found duplicate field name '#{field_name}', keeping first occurrence only")
+                  Logger.warning(
+                    "Found duplicate field name '#{field_name}', keeping first occurrence only"
+                  )
+
                   {acc, seen}
 
                 # New field - add it
@@ -394,8 +418,10 @@ defmodule SocialScribe.HubSpotAISuggestions do
     # Only apply mapping if it's a known standard field variation
     # For custom fields (like account_balance, credit_score, etc.), keep as-is
     case Map.get(field_mapping, field_name_lower) do
-      nil -> field_name  # Custom field or already correct - keep original
-      normalized -> normalized  # Standard field variation - normalize it
+      # Custom field or already correct - keep original
+      nil -> field_name
+      # Standard field variation - normalize it
+      normalized -> normalized
     end
   end
 
@@ -404,71 +430,72 @@ defmodule SocialScribe.HubSpotAISuggestions do
   # Checks if a field is a HubSpot system field that shouldn't be shown as suggestions
   defp is_hubspot_system_field?(field_name) when is_binary(field_name) do
     # HubSpot system fields that start with "hs_" or are known system fields
-    system_fields = MapSet.new([
-      "hs_object_id",
-      "hubspot_owner_id",
-      "hs_owner_id",
-      "lastmodifieddate",
-      "createdate",
-      "lifecyclestage",
-      "hs_analytics_source",
-      "hs_analytics_source_data_1",
-      "hs_analytics_source_data_2",
-      "hs_created_by_user_id",
-      "hs_updated_by_user_id",
-      "hs_lead_status",
-      "hs_all_contact_vids",
-      "hs_analytics_first_touch_converting_campaign",
-      "hs_analytics_last_touch_converting_campaign",
-      "recent_deal_amount",
-      "total_revenue",
-      "num_associated_deals",
-      "num_notes",
-      "num_contacted_notes",
-      "num_notes_created",
-      "num_activities",
-      "num_unique_conversion_events",
-      "hs_analytics_num_visits",
-      "hs_analytics_num_page_views",
-      "hs_analytics_first_timestamp",
-      "hs_analytics_last_timestamp",
-      "hs_analytics_first_visit_timestamp",
-      "hs_analytics_last_visit_timestamp",
-      "hs_email_domain",
-      "hs_email_quota",
-      "hs_email_recipient",
-      "hs_email_sender",
-      "hs_email_sender_domain",
-      "hs_email_sender_first_name",
-      "hs_email_sender_last_name",
-      "hs_email_sender_name",
-      "hs_email_subject",
-      "hs_email_text",
-      "hs_email_to_firstname",
-      "hs_email_to_lastname",
-      "hs_email_to_name",
-      "hs_latest_sequence_ended_date",
-      "hs_latest_sequence_enrolled",
-      "hs_latest_sequence_enrolled_date",
-      "hs_latest_sequence_finished_date",
-      "hs_latest_sequence_unenrolled_date",
-      "hs_sales_email_last_clicked",
-      "hs_sales_email_last_opened",
-      "hs_sales_email_last_replied",
-      "hs_sequences_enrolled_count",
-      "hs_sequences_is_enrolled",
-      "hs_sequences_is_unenrolled",
-      "hs_sequences_unenrolled_count",
-      "hs_analytics_source",
-      "hs_analytics_source_data_1",
-      "hs_analytics_source_data_2",
-      "hs_created_by_user_id",
-      "hs_updated_by_user_id",
-      "hs_lead_status",
-      "hs_all_contact_vids",
-      "hs_analytics_first_touch_converting_campaign",
-      "hs_analytics_last_touch_converting_campaign"
-    ])
+    system_fields =
+      MapSet.new([
+        "hs_object_id",
+        "hubspot_owner_id",
+        "hs_owner_id",
+        "lastmodifieddate",
+        "createdate",
+        "lifecyclestage",
+        "hs_analytics_source",
+        "hs_analytics_source_data_1",
+        "hs_analytics_source_data_2",
+        "hs_created_by_user_id",
+        "hs_updated_by_user_id",
+        "hs_lead_status",
+        "hs_all_contact_vids",
+        "hs_analytics_first_touch_converting_campaign",
+        "hs_analytics_last_touch_converting_campaign",
+        "recent_deal_amount",
+        "total_revenue",
+        "num_associated_deals",
+        "num_notes",
+        "num_contacted_notes",
+        "num_notes_created",
+        "num_activities",
+        "num_unique_conversion_events",
+        "hs_analytics_num_visits",
+        "hs_analytics_num_page_views",
+        "hs_analytics_first_timestamp",
+        "hs_analytics_last_timestamp",
+        "hs_analytics_first_visit_timestamp",
+        "hs_analytics_last_visit_timestamp",
+        "hs_email_domain",
+        "hs_email_quota",
+        "hs_email_recipient",
+        "hs_email_sender",
+        "hs_email_sender_domain",
+        "hs_email_sender_first_name",
+        "hs_email_sender_last_name",
+        "hs_email_sender_name",
+        "hs_email_subject",
+        "hs_email_text",
+        "hs_email_to_firstname",
+        "hs_email_to_lastname",
+        "hs_email_to_name",
+        "hs_latest_sequence_ended_date",
+        "hs_latest_sequence_enrolled",
+        "hs_latest_sequence_enrolled_date",
+        "hs_latest_sequence_finished_date",
+        "hs_latest_sequence_unenrolled_date",
+        "hs_sales_email_last_clicked",
+        "hs_sales_email_last_opened",
+        "hs_sales_email_last_replied",
+        "hs_sequences_enrolled_count",
+        "hs_sequences_is_enrolled",
+        "hs_sequences_is_unenrolled",
+        "hs_sequences_unenrolled_count",
+        "hs_analytics_source",
+        "hs_analytics_source_data_1",
+        "hs_analytics_source_data_2",
+        "hs_created_by_user_id",
+        "hs_updated_by_user_id",
+        "hs_lead_status",
+        "hs_all_contact_vids",
+        "hs_analytics_first_touch_converting_campaign",
+        "hs_analytics_last_touch_converting_campaign"
+      ])
 
     # Check if it's a system field or starts with "hs_"
     MapSet.member?(system_fields, field_name) || String.starts_with?(field_name, "hs_")

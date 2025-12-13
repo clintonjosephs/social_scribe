@@ -14,13 +14,17 @@ defmodule SocialScribeWeb.AuthController do
   def request(conn, %{"provider" => "hubspot"}) do
     # HubSpot OAuth flow (manual implementation since no Ueberauth strategy)
     client_id = System.get_env("HUBSPOT_CLIENT_ID")
-    redirect_uri = System.get_env("HUBSPOT_REDIRECT_URI") || "#{get_base_url(conn)}/auth/hubspot/callback"
+
+    redirect_uri =
+      System.get_env("HUBSPOT_REDIRECT_URI") || "#{get_base_url(conn)}/auth/hubspot/callback"
+
     # HubSpot scopes for contact management:
     # - crm.objects.contacts.read: Read contact records via CRM API
     # - crm.objects.contacts.write: Write/update contact records via CRM API
     # - crm.schemas.contacts.read: Read contact schemas/properties (to see available fields)
     # - crm.objects.contacts.search: Search contacts (optional, for search functionality)
-    scopes = "crm.objects.contacts.read crm.objects.contacts.write crm.schemas.contacts.read crm.schemas.contacts.write"
+    scopes =
+      "crm.objects.contacts.read crm.objects.contacts.write crm.schemas.contacts.read crm.schemas.contacts.write"
 
     auth_url =
       "https://app.hubspot.com/oauth/authorize?" <>
@@ -155,7 +159,9 @@ defmodule SocialScribeWeb.AuthController do
               credentials: %Ueberauth.Auth.Credentials{
                 token: token_data["access_token"],
                 refresh_token: token_data["refresh_token"],
-                expires_at: token_data["expires_in"] && DateTime.add(DateTime.utc_now(), token_data["expires_in"], :second)
+                expires_at:
+                  token_data["expires_in"] &&
+                    DateTime.add(DateTime.utc_now(), token_data["expires_in"], :second)
               }
             }
 
@@ -167,6 +173,7 @@ defmodule SocialScribeWeb.AuthController do
 
               {:error, reason} ->
                 Logger.error("Failed to create HubSpot credential: #{inspect(reason)}")
+
                 conn
                 |> put_flash(:error, "Could not add HubSpot account.")
                 |> redirect(to: ~p"/dashboard/settings")
@@ -174,6 +181,7 @@ defmodule SocialScribeWeb.AuthController do
 
           {:error, reason} ->
             Logger.error("Failed to fetch HubSpot user info: #{inspect(reason)}")
+
             conn
             |> put_flash(:error, "Could not fetch HubSpot account information.")
             |> redirect(to: ~p"/dashboard/settings")
@@ -181,6 +189,7 @@ defmodule SocialScribeWeb.AuthController do
 
       {:error, reason} ->
         Logger.error("Failed to exchange HubSpot code: #{inspect(reason)}")
+
         conn
         |> put_flash(:error, "Could not authenticate with HubSpot.")
         |> redirect(to: ~p"/dashboard/settings")
@@ -191,6 +200,7 @@ defmodule SocialScribeWeb.AuthController do
         "provider" => "hubspot"
       }) do
     Logger.error("HubSpot OAuth callback missing code parameter")
+
     conn
     |> put_flash(:error, "HubSpot authentication failed. Please try again.")
     |> redirect(to: ~p"/dashboard/settings")
@@ -199,7 +209,9 @@ defmodule SocialScribeWeb.AuthController do
   defp exchange_hubspot_code(code, conn) do
     client_id = System.get_env("HUBSPOT_CLIENT_ID")
     client_secret = System.get_env("HUBSPOT_CLIENT_SECRET")
-    redirect_uri = System.get_env("HUBSPOT_REDIRECT_URI") || "#{get_base_url(conn)}/auth/hubspot/callback"
+
+    redirect_uri =
+      System.get_env("HUBSPOT_REDIRECT_URI") || "#{get_base_url(conn)}/auth/hubspot/callback"
 
     # HubSpot requires form-urlencoded format, not JSON
     body = %{

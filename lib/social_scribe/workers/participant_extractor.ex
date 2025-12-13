@@ -32,7 +32,10 @@ defmodule SocialScribe.Workers.ParticipantExtractor do
   def extract_participants_for_meeting(meeting) do
     # Skip if meeting already has participants
     if Enum.any?(meeting.meeting_participants || []) do
-      Logger.debug("Meeting #{meeting.id} already has #{length(meeting.meeting_participants)} participants. Skipping.")
+      Logger.debug(
+        "Meeting #{meeting.id} already has #{length(meeting.meeting_participants)} participants. Skipping."
+      )
+
       {:skipped, "Already has participants"}
     else
       # Check if meeting has transcript
@@ -44,12 +47,15 @@ defmodule SocialScribe.Workers.ParticipantExtractor do
           participants = extract_participants_from_transcript(transcript_content)
 
           if Enum.any?(participants) do
-            Logger.info("Extracting #{length(participants)} participants for meeting #{meeting.id}")
+            Logger.info(
+              "Extracting #{length(participants)} participants for meeting #{meeting.id}"
+            )
 
             Enum.each(participants, fn participant_data ->
               participant_attrs = %{
                 meeting_id: meeting.id,
-                recall_participant_id: if(participant_data.id, do: to_string(participant_data.id), else: nil),
+                recall_participant_id:
+                  if(participant_data.id, do: to_string(participant_data.id), else: nil),
                 name: participant_data.name || "Unknown",
                 is_host: participant_data.is_host || false
               }

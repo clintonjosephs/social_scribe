@@ -53,18 +53,27 @@ defmodule SocialScribe.Workers.TranscriptCreator do
                 meeting = Repo.preload(meeting, :meeting_transcript)
 
                 if meeting.meeting_transcript do
-                  transcript_content = Map.get(meeting.meeting_transcript.content || %{}, "data", [])
+                  transcript_content =
+                    Map.get(meeting.meeting_transcript.content || %{}, "data", [])
+
                   if Enum.any?(transcript_content) do
                     Logger.info(
                       "Bot #{bot.recall_bot_id} already has transcript with #{length(transcript_content)} segments. Skipping."
                     )
+
                     {:skipped, "Transcript already exists"}
                   else
-                    Logger.info("Bot #{bot.recall_bot_id} has empty transcript. Creating new transcript...")
+                    Logger.info(
+                      "Bot #{bot.recall_bot_id} has empty transcript. Creating new transcript..."
+                    )
+
                     create_transcript_for_recording(recording_id, bot.recall_bot_id)
                   end
                 else
-                  Logger.info("Bot #{bot.recall_bot_id} has meeting but no transcript. Creating transcript...")
+                  Logger.info(
+                    "Bot #{bot.recall_bot_id} has meeting but no transcript. Creating transcript..."
+                  )
+
                   create_transcript_for_recording(recording_id, bot.recall_bot_id)
                 end
               else
@@ -75,6 +84,7 @@ defmodule SocialScribe.Workers.TranscriptCreator do
               Logger.info(
                 "Recording #{recording_id} is not done yet (status: #{Map.get(recording_status, :code)}). Skipping."
               )
+
               {:skipped, "Recording not done"}
             end
         end
@@ -107,7 +117,10 @@ defmodule SocialScribe.Workers.TranscriptCreator do
         end
 
       {:error, reason} ->
-        Logger.error("✗ Failed to create transcript for recording #{recording_id}: #{inspect(reason)}")
+        Logger.error(
+          "✗ Failed to create transcript for recording #{recording_id}: #{inspect(reason)}"
+        )
+
         {:error, reason}
     end
   end
@@ -137,7 +150,9 @@ defmodule SocialScribe.Workers.TranscriptCreator do
       Logger.info("No meetings with empty transcripts found (or all exceeded max attempts).")
       []
     else
-      Logger.info("Found #{Enum.count(meetings_with_empty_transcripts)} meetings with empty transcripts.")
+      Logger.info(
+        "Found #{Enum.count(meetings_with_empty_transcripts)} meetings with empty transcripts."
+      )
 
       Enum.map(meetings_with_empty_transcripts, fn meeting ->
         check_transcript_for_meeting(meeting)
@@ -171,7 +186,8 @@ defmodule SocialScribe.Workers.TranscriptCreator do
                 if transcript_id do
                   # Check transcript status
                   case RecallApi.get_transcript(transcript_id) do
-                    {:ok, %Tesla.Env{status: status, body: transcript_info}} when status in 200..299 ->
+                    {:ok, %Tesla.Env{status: status, body: transcript_info}}
+                    when status in 200..299 ->
                       transcript_status = Map.get(transcript_info, :status, %{})
 
                       case Map.get(transcript_status, :code) do
@@ -190,6 +206,7 @@ defmodule SocialScribe.Workers.TranscriptCreator do
                                 Logger.error(
                                   "Failed to download transcript #{transcript_id}: #{inspect(reason)}"
                                 )
+
                                 {:error, reason}
                             end
                           else
@@ -201,19 +218,29 @@ defmodule SocialScribe.Workers.TranscriptCreator do
                           Logger.debug(
                             "Transcript #{transcript_id} still processing (status: #{Map.get(transcript_status, :code)}, attempt #{attempts})"
                           )
+
                           {:pending, transcript_id}
                       end
 
                     {:error, reason} ->
-                      Logger.error("Failed to get transcript #{transcript_id}: #{inspect(reason)}")
+                      Logger.error(
+                        "Failed to get transcript #{transcript_id}: #{inspect(reason)}"
+                      )
+
                       {:error, reason}
                   end
                 else
-                  Logger.debug("No transcript ID found in media_shortcuts for meeting #{meeting.id} (attempt #{attempts})")
+                  Logger.debug(
+                    "No transcript ID found in media_shortcuts for meeting #{meeting.id} (attempt #{attempts})"
+                  )
+
                   {:skipped, "No transcript ID"}
                 end
               else
-                Logger.debug("No transcript shortcut found for meeting #{meeting.id} (attempt #{attempts})")
+                Logger.debug(
+                  "No transcript shortcut found for meeting #{meeting.id} (attempt #{attempts})"
+                )
+
                 {:skipped, "No transcript shortcut"}
               end
           end
@@ -280,7 +307,10 @@ defmodule SocialScribe.Workers.TranscriptCreator do
           {:ok, meeting.id}
 
         {:error, reason} ->
-          Logger.error("Failed to update transcript for meeting #{meeting.id}: #{inspect(reason)}")
+          Logger.error(
+            "Failed to update transcript for meeting #{meeting.id}: #{inspect(reason)}"
+          )
+
           {:error, reason}
       end
     else

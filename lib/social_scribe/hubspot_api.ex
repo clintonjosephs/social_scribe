@@ -133,7 +133,9 @@ defmodule SocialScribe.HubSpotApi do
     ]
 
     properties_param = Enum.join(properties, ",")
-    url = "#{@hubspot_api_base_url}/crm/v3/objects/contacts/#{contact_id}?properties=#{properties_param}"
+
+    url =
+      "#{@hubspot_api_base_url}/crm/v3/objects/contacts/#{contact_id}?properties=#{properties_param}"
 
     case Tesla.get(client, url) do
       {:ok, %Tesla.Env{status: 200, body: body}} ->
@@ -254,7 +256,13 @@ defmodule SocialScribe.HubSpotApi do
       iex> create_contact_property(access_token, "account_balance", "Account Balance", "number")
       {:ok, %{"name" => "account_balance", ...}}
   """
-  def create_contact_property(access_token, property_name, label, type \\ "string", field_type \\ "text") do
+  def create_contact_property(
+        access_token,
+        property_name,
+        label,
+        type \\ "string",
+        field_type \\ "text"
+      ) do
     client = build_client(access_token)
     url = "#{@hubspot_api_base_url}/crm/v3/properties/contacts"
 
@@ -290,7 +298,13 @@ defmodule SocialScribe.HubSpotApi do
   @doc """
   Creates a contact property using a UserCredential (automatically refreshes token if needed).
   """
-  def create_contact_property_with_credential(%UserCredential{} = credential, property_name, label, type \\ "string", field_type \\ "text") do
+  def create_contact_property_with_credential(
+        %UserCredential{} = credential,
+        property_name,
+        label,
+        type \\ "string",
+        field_type \\ "text"
+      ) do
     with {:ok, token} <- ensure_valid_token(credential) do
       create_contact_property(token, property_name, label, type, field_type)
     end
@@ -302,11 +316,24 @@ defmodule SocialScribe.HubSpotApi do
   """
   def ensure_property_exists(access_token, property_name, label, value) do
     # Standard HubSpot fields that always exist - don't try to create them
-    standard_fields = MapSet.new([
-      "firstname", "lastname", "email", "phone", "mobilephone", "company",
-      "jobtitle", "website", "address", "city", "state", "zip", "country",
-      "lifecyclestage", "hubspot_owner_id"
-    ])
+    standard_fields =
+      MapSet.new([
+        "firstname",
+        "lastname",
+        "email",
+        "phone",
+        "mobilephone",
+        "company",
+        "jobtitle",
+        "website",
+        "address",
+        "city",
+        "state",
+        "zip",
+        "country",
+        "lifecyclestage",
+        "hubspot_owner_id"
+      ])
 
     property_name_lower = String.downcase(property_name)
 
@@ -345,7 +372,12 @@ defmodule SocialScribe.HubSpotApi do
   @doc """
   Ensures a property exists using a UserCredential.
   """
-  def ensure_property_exists_with_credential(%UserCredential{} = credential, property_name, label, value) do
+  def ensure_property_exists_with_credential(
+        %UserCredential{} = credential,
+        property_name,
+        label,
+        value
+      ) do
     with {:ok, token} <- ensure_valid_token(credential) do
       ensure_property_exists(token, property_name, label, value)
     end
@@ -357,16 +389,28 @@ defmodule SocialScribe.HubSpotApi do
   defp infer_property_type(value) when is_binary(value) do
     # Check if it's a date
     cond do
-      Regex.match?(~r/^\d{4}-\d{2}-\d{2}/, value) -> {"date", "date"}
-      Regex.match?(~r/^\d{1,2}\/\d{1,2}\/\d{4}/, value) -> {"date", "date"}
+      Regex.match?(~r/^\d{4}-\d{2}-\d{2}/, value) ->
+        {"date", "date"}
+
+      Regex.match?(~r/^\d{1,2}\/\d{1,2}\/\d{4}/, value) ->
+        {"date", "date"}
+
       # Check if it's a number (with currency symbols or commas)
-      Regex.match?(~r/^[\$€£¥]?\s*\d+([.,]\d+)?%?$/, String.replace(value, ~r/[,]/, "")) -> {"number", "number"}
+      Regex.match?(~r/^[\$€£¥]?\s*\d+([.,]\d+)?%?$/, String.replace(value, ~r/[,]/, "")) ->
+        {"number", "number"}
+
       # Check if it's a phone number - use "phonenumber" (no underscore) for HubSpot
-      Regex.match?(~r/^[\d\s\-\(\)\+]+$/, value) && String.length(String.replace(value, ~r/[\s\-\(\)\+]/, "")) >= 10 -> {"string", "phonenumber"}
+      Regex.match?(~r/^[\d\s\-\(\)\+]+$/, value) &&
+          String.length(String.replace(value, ~r/[\s\-\(\)\+]/, "")) >= 10 ->
+        {"string", "phonenumber"}
+
       # Check if it's an email
-      Regex.match?(~r/^[^\s]+@[^\s]+$/, value) -> {"string", "text"}
+      Regex.match?(~r/^[^\s]+@[^\s]+$/, value) ->
+        {"string", "text"}
+
       # Default to text
-      true -> {"string", "text"}
+      true ->
+        {"string", "text"}
     end
   end
 
@@ -378,7 +422,8 @@ defmodule SocialScribe.HubSpotApi do
     # Check if token is expired or will expire soon (within 5 minutes)
     expires_at = credential.expires_at || DateTime.utc_now()
     now = DateTime.utc_now()
-    buffer_seconds = 300 # 5 minutes buffer
+    # 5 minutes buffer
+    buffer_seconds = 300
 
     if DateTime.compare(expires_at, DateTime.add(now, buffer_seconds, :second)) == :lt do
       # Token is expired or will expire soon, refresh it
@@ -386,6 +431,7 @@ defmodule SocialScribe.HubSpotApi do
         Logger.warning(
           "HubSpot credential #{credential.id} has no refresh_token. Token expired and cannot be refreshed. User needs to re-authenticate."
         )
+
         {:error, {:no_refresh_token, "Token expired and no refresh token available"}}
       else
         case TokenRefresher.refresh_hubspot_token(credential.refresh_token) do
@@ -410,7 +456,10 @@ defmodule SocialScribe.HubSpotApi do
                 {:ok, updated_credential.token}
 
               {:error, reason} ->
-                Logger.error("Failed to update HubSpot credential after refresh: #{inspect(reason)}")
+                Logger.error(
+                  "Failed to update HubSpot credential after refresh: #{inspect(reason)}"
+                )
+
                 {:error, {:update_failed, reason}}
             end
 

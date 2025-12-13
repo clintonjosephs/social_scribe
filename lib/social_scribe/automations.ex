@@ -270,6 +270,7 @@ defmodule SocialScribe.Automations do
             {:meeting_updated, result.meeting_id}
           )
         end
+
         success
 
       error ->

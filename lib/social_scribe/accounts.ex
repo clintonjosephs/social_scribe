@@ -300,7 +300,7 @@ defmodule SocialScribe.Accounts do
         # If existing credential has no refresh_token but new one does, update it
         final_attrs =
           if (is_nil(credential.refresh_token) || credential.refresh_token == "") &&
-             not is_nil(updated_attrs[:refresh_token]) && updated_attrs[:refresh_token] != "" do
+               not is_nil(updated_attrs[:refresh_token]) && updated_attrs[:refresh_token] != "" do
             # Keep the refresh_token from new auth
             updated_attrs
           else
@@ -320,6 +320,7 @@ defmodule SocialScribe.Accounts do
               "user:#{user.id}:credentials",
               {:credential_updated, updated_credential.id, updated_credential.provider}
             )
+
             {:ok, updated_credential}
 
           error ->
@@ -422,10 +423,13 @@ defmodule SocialScribe.Accounts do
       iex> update_credential_tokens(user_credential, %{"access_token" => "new_token", "expires_in" => 3600, "refresh_token" => "new_refresh"})
       {:ok, %UserCredential{}}
   """
-  def update_credential_tokens(%UserCredential{} = credential, %{
-        "access_token" => token,
-        "expires_in" => expires_in
-      } = attrs) do
+  def update_credential_tokens(
+        %UserCredential{} = credential,
+        %{
+          "access_token" => token,
+          "expires_in" => expires_in
+        } = attrs
+      ) do
     update_attrs = %{
       token: token,
       expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
