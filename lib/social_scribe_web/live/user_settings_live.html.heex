@@ -211,6 +211,59 @@
       </div>
     <% end %>
   </div>
+
+  <div class="bg-white  shadow-xl rounded-lg p-6 md:p-8">
+    <h2 class="text-2xl font-semibold mb-6 text-slate-700 ">
+      Connected HubSpot Account
+    </h2>
+
+    <%= if not Enum.empty?(@hubspot_accounts) do %>
+      <ul class="space-y-4 mb-8">
+        <li
+          :for={account <- @hubspot_accounts}
+          class="flex justify-between items-center p-4 bg-slate-50  rounded-md shadow"
+        >
+          <div>
+            <p class="font-medium text-slate-700 ">
+              HubSpot Account
+            </p>
+            <p class="text-sm text-slate-500 ">
+              UID: {account.uid}
+              <%= if account.email do %>
+                ({account.email})
+              <% end %>
+            </p>
+          </div>
+          <!-- Future: Add a "Disconnect" button here -->
+        </li>
+      </ul>
+    <% else %>
+      <p class="mb-8 text-slate-600 ">
+        You haven't connected any HubSpot accounts yet.
+      </p>
+
+      <div>
+        <.link
+          href={~p"/auth/hubspot"}
+          method="get"
+          class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          <svg
+            class="-ml-1 mr-3 h-5 w-5"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              d="M17.503 0H6.497a6.497 6.497 0 0 0 0 12.994h11.006a6.497 6.497 0 0 0 0-12.994zM11.977 9.55H6.497a3.497 3.497 0 0 1 0-6.994h5.48v6.994zm.046-1.55h5.48a3.497 3.497 0 0 1 0 6.994h-5.48V8zm-5.526 6.994h11.006a6.497 6.497 0 0 0 0-12.994H6.497a6.497 6.497 0 0 0 0 12.994z"
+            />
+          </svg>
+          Connect a HubSpot Account
+        </.link>
+      </div>
+    <% end %>
+  </div>
 </div>
 
 <.modal

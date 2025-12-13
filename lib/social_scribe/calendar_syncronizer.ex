@@ -48,15 +48,23 @@ defmodule SocialScribe.CalendarSyncronizer do
 
   defp ensure_valid_token(%UserCredential{} = credential) do
     if DateTime.compare(credential.expires_at || DateTime.utc_now(), DateTime.utc_now()) == :lt do
-      case TokenRefresherApi.refresh_token(credential.refresh_token) do
-        {:ok, new_token_data} ->
-          {:ok, updated_credential} =
-            Accounts.update_credential_tokens(credential, new_token_data)
+      # Check if refresh_token exists
+      if is_nil(credential.refresh_token) || credential.refresh_token == "" do
+        Logger.warning(
+          "Credential #{credential.id} has no refresh_token. Token expired and cannot be refreshed. User needs to re-authenticate."
+        )
+        {:error, {:no_refresh_token, "Token expired and no refresh token available"}}
+      else
+        case TokenRefresherApi.refresh_token(credential.refresh_token) do
+          {:ok, new_token_data} ->
+            {:ok, updated_credential} =
+              Accounts.update_credential_tokens(credential, new_token_data)
 
-          {:ok, updated_credential.token}
+            {:ok, updated_credential.token}
 
-        {:error, reason} ->
-          {:error, {:refresh_failed, reason}}
+          {:error, reason} ->
+            {:error, {:refresh_failed, reason}}
+        end
       end
     else
       {:ok, credential.token}

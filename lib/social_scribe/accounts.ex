@@ -10,6 +10,8 @@ defmodule SocialScribe.Accounts do
 
   alias SocialScribe.Accounts.{User, UserToken, UserCredential}
 
+  require Logger
+
   ## Database getters
 
   @doc """
@@ -333,13 +335,32 @@ defmodule SocialScribe.Accounts do
   end
 
   defp format_credential_attrs(user, %Auth{credentials: %{refresh_token: nil}} = auth) do
+    Logger.warning(
+      "OAuth response for user #{user.id} (#{auth.provider}) has no refresh_token. Token will expire and cannot be refreshed automatically."
+    )
+
     %{
       user_id: user.id,
       provider: to_string(auth.provider),
       uid: auth.uid,
       token: auth.credentials.token,
+      refresh_token: nil,
       expires_at:
         (auth.credentials.expires_at && DateTime.from_unix!(auth.credentials.expires_at)) ||
+          DateTime.add(DateTime.utc_now(), 3600, :second),
+      email: auth.info.email
+    }
+  end
+
+  defp format_credential_attrs(user, %Auth{provider: :hubspot} = auth) do
+    %{
+      user_id: user.id,
+      provider: to_string(auth.provider),
+      uid: auth.uid,
+      token: auth.credentials.token,
+      refresh_token: auth.credentials.refresh_token,
+      expires_at:
+        auth.credentials.expires_at ||
           DateTime.add(DateTime.utc_now(), 3600, :second),
       email: auth.info.email
     }

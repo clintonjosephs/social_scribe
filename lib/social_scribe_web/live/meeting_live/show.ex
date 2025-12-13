@@ -4,8 +4,9 @@ defmodule SocialScribeWeb.MeetingLive.Show do
   import SocialScribeWeb.PlatformLogo
   import SocialScribeWeb.ClipboardButton
 
-  alias SocialScribe.Meetings
+  alias SocialScribe.{Meetings, RecallApi}
   alias SocialScribe.Automations
+  require Logger
 
   @impl true
   def mount(%{"id" => meeting_id}, _session, socket) do
@@ -26,16 +27,31 @@ defmodule SocialScribeWeb.MeetingLive.Show do
 
       {:error, socket}
     else
+      # Check recording status
+      {has_recording, recording_status} = check_recording_status(meeting.recall_bot.recall_bot_id)
+
+      # Check if transcript exists but is empty (meaning we've already tried to create it)
+      transcript_exists_but_empty =
+        meeting.meeting_transcript &&
+          meeting.meeting_transcript.content &&
+          Map.get(meeting.meeting_transcript.content, "data", []) == []
+
       socket =
         socket
         |> assign(:page_title, "Meeting Details: #{meeting.title}")
         |> assign(:meeting, meeting)
         |> assign(:automation_results, automation_results)
         |> assign(:user_has_automations, user_has_automations)
+        |> assign(:has_recording, has_recording)
+        |> assign(:recording_status, recording_status)
+        |> assign(:transcript_exists_but_empty, transcript_exists_but_empty)
+        |> assign(:transcript_loading, false)
+        |> assign(:email_generating, false)
+        |> assign(:participants_loading, false)
         |> assign(
           :follow_up_email_form,
           to_form(%{
-            "follow_up_email" => ""
+            "follow_up_email" => meeting.follow_up_email || ""
           })
         )
 
@@ -70,6 +86,259 @@ defmodule SocialScribeWeb.MeetingLive.Show do
     {:noreply, socket}
   end
 
+  @impl true
+  def handle_event("generate-follow-up-email", _params, socket) do
+    meeting = socket.assigns.meeting
+
+    # Check if meeting has transcript and participants
+    has_transcript =
+      meeting.meeting_transcript &&
+        meeting.meeting_transcript.content &&
+        Map.get(meeting.meeting_transcript.content, "data", []) != []
+
+    has_participants = Enum.any?(meeting.meeting_participants || [])
+
+    if has_transcript && has_participants do
+      socket = assign(socket, :email_generating, true)
+
+      # Enqueue AI content generation worker
+      %{meeting_id: meeting.id}
+      |> SocialScribe.Workers.AIContentGenerationWorker.new()
+      |> Oban.insert()
+
+      Logger.info("Enqueued AI content generation for meeting #{meeting.id}")
+
+      socket =
+        socket
+        |> assign(:email_generating, false)
+        |> put_flash(
+          :info,
+          "Follow-up email generation started. It may take a few moments. The page will refresh automatically when ready."
+        )
+
+      # Refresh meeting data after a delay
+      send(self(), {:refresh_meeting, meeting.id})
+
+      {:noreply, socket}
+    else
+      socket =
+        socket
+        |> put_flash(
+          :error,
+          "Cannot generate follow-up email: Meeting must have both transcript and participants."
+        )
+
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("extract-participants", _params, socket) do
+    meeting = socket.assigns.meeting
+
+    # Check if meeting has transcript
+    has_transcript =
+      meeting.meeting_transcript &&
+        meeting.meeting_transcript.content &&
+        Map.get(meeting.meeting_transcript.content, "data", []) != []
+
+    has_participants = Enum.any?(meeting.meeting_participants || [])
+
+    if has_transcript do
+      if has_participants do
+        socket =
+          socket
+          |> put_flash(:info, "This meeting already has participants extracted.")
+
+        {:noreply, socket}
+      else
+        socket = assign(socket, :participants_loading, true)
+
+        # Extract participants synchronously
+        alias SocialScribe.Workers.ParticipantExtractor
+
+        case ParticipantExtractor.extract_participants_for_meeting(meeting) do
+          {:ok, count} ->
+            Logger.info("Successfully extracted #{count} participants for meeting #{meeting.id}")
+
+            socket =
+              socket
+              |> assign(:participants_loading, false)
+              |> put_flash(
+                :info,
+                "Successfully extracted #{count} participant(s). Refreshing page..."
+              )
+
+            # Refresh meeting data
+            send(self(), {:refresh_meeting, meeting.id})
+
+            {:noreply, socket}
+
+          {:skipped, reason} ->
+            socket =
+              socket
+              |> assign(:participants_loading, false)
+              |> put_flash(:warning, "Could not extract participants: #{reason}")
+
+            {:noreply, socket}
+        end
+      end
+    else
+      socket =
+        socket
+        |> put_flash(:error, "Cannot extract participants: Meeting must have a transcript.")
+
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("create-transcript", _params, socket) do
+    socket = assign(socket, :transcript_loading, true)
+
+    # Get bot to find recording
+    case RecallApi.get_bot(socket.assigns.meeting.recall_bot.recall_bot_id) do
+      {:ok, %Tesla.Env{body: bot_info}} ->
+        recordings = Map.get(bot_info, :recordings, [])
+
+        case List.first(recordings) do
+          nil ->
+            socket =
+              socket
+              |> assign(:transcript_loading, false)
+              |> put_flash(:error, "No recording found for this meeting.")
+
+            {:noreply, socket}
+
+          recording ->
+            recording_id = Map.get(recording, :id)
+            recording_status = Map.get(recording, :status, %{})
+
+            if Map.get(recording_status, :code) == "done" do
+              # Create transcript
+              case RecallApi.create_transcript(recording_id) do
+                {:ok, %Tesla.Env{status: status, body: transcript_response}}
+                when status in 200..299 ->
+                  transcript_id = Map.get(transcript_response, :id)
+                  Logger.info("Transcript creation initiated. Transcript ID: #{transcript_id}")
+
+                  socket =
+                    socket
+                    |> assign(:transcript_loading, false)
+                    |> put_flash(
+                      :info,
+                      "Transcript creation started. It may take a few minutes to process. The page will refresh automatically when ready."
+                    )
+
+                  # Refresh meeting data after a short delay to update button visibility
+                  send(self(), {:refresh_meeting, socket.assigns.meeting.id})
+
+                  {:noreply, socket}
+
+                {:ok, %Tesla.Env{status: 409}} ->
+                  socket =
+                    socket
+                    |> assign(:transcript_loading, false)
+                    |> put_flash(
+                      :info,
+                      "Transcript is already being processed. Please wait a few minutes and refresh the page."
+                    )
+
+                  {:noreply, socket}
+
+                {:ok, %Tesla.Env{status: status, body: error_body}} ->
+                  Logger.error("Failed to create transcript: HTTP #{status} - #{inspect(error_body)}")
+
+                  socket =
+                    socket
+                    |> assign(:transcript_loading, false)
+                    |> put_flash(:error, "Failed to create transcript. Please try again later.")
+
+                  {:noreply, socket}
+
+                {:error, reason} ->
+                  Logger.error("Failed to create transcript: #{inspect(reason)}")
+
+                  socket =
+                    socket
+                    |> assign(:transcript_loading, false)
+                    |> put_flash(:error, "Failed to create transcript. Please try again later.")
+
+                  {:noreply, socket}
+              end
+            else
+              socket =
+                socket
+                |> assign(:transcript_loading, false)
+                |> put_flash(
+                  :error,
+                  "Recording is not ready yet. Please wait for the recording to complete."
+                )
+
+              {:noreply, socket}
+            end
+        end
+
+      {:error, reason} ->
+        Logger.error("Failed to get bot info: #{inspect(reason)}")
+
+        socket =
+          socket
+          |> assign(:transcript_loading, false)
+          |> put_flash(:error, "Failed to check recording status. Please try again later.")
+
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:refresh_meeting, meeting_id}, socket) do
+    # Refresh meeting data
+    meeting = Meetings.get_meeting_with_details(meeting_id)
+    {has_recording, recording_status} = check_recording_status(meeting.recall_bot.recall_bot_id)
+
+    # Check if transcript exists but is empty
+    transcript_exists_but_empty =
+      meeting.meeting_transcript &&
+        meeting.meeting_transcript.content &&
+        Map.get(meeting.meeting_transcript.content, "data", []) == []
+
+    socket =
+      socket
+      |> assign(:meeting, meeting)
+      |> assign(:has_recording, has_recording)
+      |> assign(:recording_status, recording_status)
+      |> assign(:transcript_exists_but_empty, transcript_exists_but_empty)
+      |> assign(:participants_loading, false)
+      |> assign(
+        :follow_up_email_form,
+        to_form(%{
+          "follow_up_email" => meeting.follow_up_email || ""
+        })
+      )
+
+    {:noreply, socket}
+  end
+
+  defp check_recording_status(recall_bot_id) do
+    case RecallApi.get_bot(recall_bot_id) do
+      {:ok, %Tesla.Env{body: bot_info}} ->
+        recordings = Map.get(bot_info, :recordings, [])
+
+        case List.first(recordings) do
+          nil ->
+            {false, nil}
+
+          recording ->
+            recording_status = Map.get(recording, :status, %{})
+            {true, Map.get(recording_status, :code)}
+        end
+
+      {:error, _reason} ->
+        {false, nil}
+    end
+  end
+
   defp format_duration(nil), do: "N/A"
 
   defp format_duration(seconds) when is_integer(seconds) do
@@ -84,7 +353,33 @@ defmodule SocialScribeWeb.MeetingLive.Show do
     end
   end
 
+  defp get_speaker_name(segment) do
+    cond do
+      # Recall.ai format: participant.name
+      Map.has_key?(segment, "participant") ->
+        get_in(segment, ["participant", "name"]) || "Unknown Speaker"
+
+      # Alternative format: speaker field
+      Map.has_key?(segment, "speaker") ->
+        segment["speaker"] || "Unknown Speaker"
+
+      true ->
+        "Unknown Speaker"
+    end
+  end
+
+  defp get_segment_text(segment) do
+    words = segment["words"] || []
+    Enum.map_join(words, " ", fn word ->
+      if is_map(word), do: word["text"] || "", else: ""
+    end)
+  end
+
   attr :meeting_transcript, :map, required: true
+  attr :has_recording, :boolean, required: true
+  attr :recording_status, :string, default: nil
+  attr :transcript_loading, :boolean, default: false
+  attr :transcript_exists_but_empty, :boolean, default: false
 
   defp transcript_content(assigns) do
     has_transcript =
@@ -93,29 +388,102 @@ defmodule SocialScribeWeb.MeetingLive.Show do
         Map.get(assigns.meeting_transcript.content, "data") &&
         Enum.any?(Map.get(assigns.meeting_transcript.content, "data"))
 
+    # Show button only if:
+    # - No transcript data exists
+    # - Recording exists and is done
+    # - We haven't already tried creating a transcript (transcript doesn't exist OR exists but isn't empty)
+    show_generate_button =
+      !has_transcript &&
+        assigns.has_recording &&
+        assigns.recording_status == "done" &&
+        !assigns.transcript_exists_but_empty
+
     assigns =
       assigns
       |> assign(:has_transcript, has_transcript)
+      |> assign(:show_generate_button, show_generate_button)
 
     ~H"""
     <div class="bg-white shadow-xl rounded-lg p-6 md:p-8">
-      <h2 class="text-2xl font-semibold mb-4 text-slate-700">
-        Meeting Transcript
-      </h2>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-semibold text-slate-700">
+          Meeting Transcript
+        </h2>
+        <%= if @show_generate_button do %>
+          <button
+            phx-click="create-transcript"
+            disabled={@transcript_loading}
+            class={[
+              "inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md",
+              "text-white bg-indigo-600 hover:bg-indigo-700",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            ]}
+          >
+            <%= if @transcript_loading do %>
+              <svg
+                class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                >
+                </circle>
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                >
+                </path>
+              </svg>
+              Creating...
+            <% else %>
+              Generate Transcript
+            <% end %>
+          </button>
+        <% end %>
+      </div>
       <div class="prose prose-sm sm:prose max-w-none h-96 overflow-y-auto pr-2">
         <%= if @has_transcript do %>
           <div :for={segment <- @meeting_transcript.content["data"]} class="mb-3">
             <p>
               <span class="font-semibold text-indigo-600">
-                {segment["speaker"] || "Unknown Speaker"}:
+                {get_speaker_name(segment)}:
               </span>
-              {Enum.map_join(segment["words"] || [], " ", & &1["text"])}
+              {get_segment_text(segment)}
             </p>
           </div>
         <% else %>
-          <p class="text-slate-500">
-            Transcript not available for this meeting.
-          </p>
+          <div class="text-center py-8">
+            <%= cond do %>
+              <% !@has_recording -> %>
+                <p class="text-slate-500 text-lg mb-2">No recording found</p>
+                <p class="text-slate-400 text-sm">
+                  This meeting does not have a recording available.
+                </p>
+              <% @recording_status != "done" -> %>
+                <p class="text-slate-500 text-lg mb-2">Recording in progress</p>
+                <p class="text-slate-400 text-sm">
+                  The recording is still being processed. Please check back later.
+                </p>
+              <% @transcript_exists_but_empty -> %>
+                <p class="text-slate-500 text-lg mb-2">Transcript unavailable</p>
+                <p class="text-slate-400 text-sm">
+                  A transcript was created for this meeting but no transcript data was available from the recording.
+                </p>
+              <% true -> %>
+                <p class="text-slate-500 text-lg mb-2">Transcript not available</p>
+                <p class="text-slate-400 text-sm mb-4">
+                  Click the "Generate Transcript" button above to create a transcript for this meeting.
+                </p>
+            <% end %>
+          </div>
         <% end %>
       </div>
     </div>

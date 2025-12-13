@@ -355,9 +355,28 @@ defmodule SocialScribe.Meetings do
 
       {:ok, _transcript} = create_meeting_transcript(transcript_attrs)
 
-      Enum.each(bot_api_info.meeting_participants || [], fn participant_data ->
+      # Extract participants from transcript data (transcripts contain participant info)
+      # Also check bot_api_info for direct participant data
+      participants =
+        extract_participants_from_transcript(transcript_data) ++
+          extract_participants_from_bot_info(bot_api_info)
+
+      # Remove duplicates based on participant ID
+      unique_participants = Enum.uniq_by(participants, &Map.get(&1, :id) || Map.get(&1, "id"))
+
+      # Create participants and log any errors
+      Enum.each(unique_participants, fn participant_data ->
         participant_attrs = parse_participant_attrs(meeting, participant_data)
-        create_meeting_participant(participant_attrs)
+
+        case create_meeting_participant(participant_attrs) do
+          {:ok, _participant} ->
+            Logger.debug("Created participant: #{participant_attrs.name}")
+
+          {:error, changeset} ->
+            Logger.error(
+              "Failed to create participant #{participant_attrs.name}: #{inspect(changeset.errors)}"
+            )
+        end
       end)
 
       Repo.preload(meeting, [:meeting_transcript, :meeting_participants])
@@ -402,19 +421,101 @@ defmodule SocialScribe.Meetings do
   end
 
   defp parse_transcript_attrs(meeting, transcript_data) do
+    # Handle different transcript data formats
+    transcript_list =
+      cond do
+        is_list(transcript_data) -> transcript_data
+        is_map(transcript_data) -> Map.get(transcript_data, :data, [])
+        true -> []
+      end
+
+    language =
+      case List.first(transcript_list || []) do
+        nil -> "unknown"
+        first_segment when is_map(first_segment) -> Map.get(first_segment, :language, "unknown")
+        _ -> "unknown"
+      end
+
     %{
       meeting_id: meeting.id,
-      content: %{data: transcript_data},
-      language: List.first(transcript_data || []) |> Map.get(:language, "unknown")
+      content: %{data: transcript_list},
+      language: language
     }
   end
 
+  defp extract_participants_from_transcript(transcript_data) do
+    # Extract unique participants from transcript segments
+    transcript_list =
+      cond do
+        is_list(transcript_data) -> transcript_data
+        is_map(transcript_data) -> Map.get(transcript_data, :data, []) || Map.get(transcript_data, "data", []) || []
+        true -> []
+      end
+
+    if Enum.empty?(transcript_list) do
+      Logger.debug("No transcript data to extract participants from")
+      []
+    else
+      Logger.debug("Extracting participants from #{length(transcript_list)} transcript segments")
+
+      participants =
+        transcript_list
+        |> Enum.map(fn segment ->
+          # Handle both atom and string keys
+          participant =
+            Map.get(segment, :participant) ||
+              Map.get(segment, "participant") ||
+              Map.get(segment, :speaker) ||
+              Map.get(segment, "speaker")
+
+          participant
+        end)
+        |> Enum.filter(&(!is_nil(&1)))
+
+      Logger.debug("Found #{length(participants)} participant references in transcript")
+
+      unique_participants =
+        participants
+        |> Enum.uniq_by(fn p ->
+          Map.get(p, :id) || Map.get(p, "id") || Map.get(p, :name) || Map.get(p, "name")
+        end)
+        |> Enum.map(fn p ->
+          # Normalize to atom keys
+          %{
+            id: Map.get(p, :id) || Map.get(p, "id"),
+            name: Map.get(p, :name) || Map.get(p, "name") || "Unknown",
+            is_host: Map.get(p, :is_host, Map.get(p, "is_host", false))
+          }
+        end)
+
+      Logger.debug("Extracted #{length(unique_participants)} unique participants")
+      unique_participants
+    end
+  end
+
+  defp extract_participants_from_bot_info(bot_api_info) do
+    # Check for participants in bot_api_info
+    participants = Map.get(bot_api_info, :meeting_participants) || Map.get(bot_api_info, "meeting_participants") || []
+
+    Enum.map(participants, fn p ->
+      %{
+        id: Map.get(p, :id) || Map.get(p, "id"),
+        name: Map.get(p, :name) || Map.get(p, "name") || "Unknown",
+        is_host: Map.get(p, :is_host, Map.get(p, "is_host", false))
+      }
+    end)
+  end
+
   defp parse_participant_attrs(meeting, participant_data) do
+    participant_id = Map.get(participant_data, :id) || Map.get(participant_data, "id")
+    participant_name = Map.get(participant_data, :name) || Map.get(participant_data, "name") || "Unknown"
+    is_host = Map.get(participant_data, :is_host, Map.get(participant_data, "is_host", false))
+
     %{
       meeting_id: meeting.id,
-      recall_participant_id: to_string(participant_data.id),
-      name: participant_data.name,
-      is_host: Map.get(participant_data, :is_host, false)
+      recall_participant_id: if(participant_id, do: to_string(participant_id), else: nil),
+      name: participant_name,
+      is_host: is_host
     }
   end
 
@@ -483,8 +584,22 @@ defmodule SocialScribe.Meetings do
 
   defp format_transcript_for_prompt(transcript_segments) when is_list(transcript_segments) do
     Enum.map_join(transcript_segments, "\n", fn segment ->
-      speaker = Map.get(segment, "speaker", "Unknown Speaker")
-      text = Enum.map_join(Map.get(segment, "words", []), " ", &Map.get(&1, "text", ""))
+      speaker =
+        cond do
+          # Recall.ai format: participant.name
+          Map.has_key?(segment, "participant") ->
+            get_in(segment, ["participant", "name"]) || "Unknown Speaker"
+
+          # Alternative format: speaker field
+          Map.has_key?(segment, "speaker") ->
+            Map.get(segment, "speaker", "Unknown Speaker")
+
+          true ->
+            "Unknown Speaker"
+        end
+
+      words = Map.get(segment, "words", [])
+      text = Enum.map_join(words, " ", fn word -> Map.get(word, "text", "") end)
       "#{speaker}: #{text}"
     end)
   end

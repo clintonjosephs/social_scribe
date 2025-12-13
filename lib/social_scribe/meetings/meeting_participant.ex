@@ -17,6 +17,6 @@ defmodule SocialScribe.Meetings.MeetingParticipant do
   def changeset(participant, attrs) do
     participant
     |> cast(attrs, [:recall_participant_id, :name, :is_host, :meeting_id])
-    |> validate_required([:recall_participant_id, :name, :meeting_id])
+    |> validate_required([:name, :meeting_id])
   end
 end

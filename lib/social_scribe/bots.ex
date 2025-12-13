@@ -32,6 +32,24 @@ defmodule SocialScribe.Bots do
   end
 
   @doc """
+  Lists all "done" bots that don't have a meeting record yet.
+  These need to be processed to create meeting records.
+  """
+  def list_done_bots_without_meetings do
+    alias SocialScribe.Meetings
+
+    # Get all done bots
+    done_bots =
+      from(b in RecallBot, where: b.status == "done")
+      |> Repo.all()
+
+    # Filter out bots that already have meetings
+    Enum.filter(done_bots, fn bot ->
+      is_nil(Meetings.get_meeting_by_recall_bot_id(bot.id))
+    end)
+  end
+
+  @doc """
   Gets a single recall_bot.
 
   Raises `Ecto.NoResultsError` if the Recall bot does not exist.

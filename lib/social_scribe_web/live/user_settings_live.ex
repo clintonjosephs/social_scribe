@@ -14,6 +14,8 @@ defmodule SocialScribeWeb.UserSettingsLive do
 
     facebook_accounts = Accounts.list_user_credentials(current_user, provider: "facebook")
 
+    hubspot_accounts = Accounts.list_user_credentials(current_user, provider: "hubspot")
+
     user_bot_preference =
       Bots.get_user_bot_preference(current_user.id) || %Bots.UserBotPreference{}
 
@@ -25,6 +27,7 @@ defmodule SocialScribeWeb.UserSettingsLive do
       |> assign(:google_accounts, google_accounts)
       |> assign(:linkedin_accounts, linkedin_accounts)
       |> assign(:facebook_accounts, facebook_accounts)
+      |> assign(:hubspot_accounts, hubspot_accounts)
       |> assign(:user_bot_preference, user_bot_preference)
       |> assign(:user_bot_preference_form, to_form(changeset))
 

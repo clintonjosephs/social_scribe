@@ -23,6 +23,12 @@ defmodule SocialScribe.RecallApi do
   @callback get_bot_transcript(recall_bot_id :: String.t()) ::
               {:ok, Tesla.Env.t()} | {:error, any()}
 
+  @callback create_transcript(recording_id :: String.t()) ::
+              {:ok, Tesla.Env.t()} | {:error, any()}
+
+  @callback get_transcript(transcript_id :: String.t()) ::
+              {:ok, Tesla.Env.t()} | {:error, any()}
+
   def create_bot(meeting_url, join_offset_minutes) do
     impl().create_bot(meeting_url, join_offset_minutes)
   end
@@ -41,6 +47,14 @@ defmodule SocialScribe.RecallApi do
 
   def get_bot_transcript(recall_bot_id) do
     impl().get_bot_transcript(recall_bot_id)
+  end
+
+  def create_transcript(recording_id) do
+    impl().create_transcript(recording_id)
+  end
+
+  def get_transcript(transcript_id) do
+    impl().get_transcript(transcript_id)
   end
 
   defp impl do
