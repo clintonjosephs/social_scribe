@@ -34,6 +34,7 @@ defmodule SocialScribe.MixProject do
     [
       {:oban_web, "~> 2.11"},
       {:oban, "~> 2.19"},
+      {:dotenvy, "~> 0.8"},
       {:igniter, "~> 0.5", only: [:dev]},
       {:mox, "~> 1.2", only: :test},
       {:timex, "~> 3.0"},

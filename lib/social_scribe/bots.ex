@@ -123,7 +123,7 @@ defmodule SocialScribe.Bots do
     join_minute_offset =
       Map.get(user_bot_preference, :join_minute_offset, 2)
 
-    with {:ok, %{body: api_response}} <-
+    with {:ok, %Tesla.Env{status: status, body: api_response}} <-
            RecallApi.create_bot(
              calendar_event.hangout_link,
              DateTime.add(
@@ -132,13 +132,25 @@ defmodule SocialScribe.Bots do
                :minute
              )
            ) do
-      create_recall_bot(%{
-        user_id: user.id,
-        calendar_event_id: calendar_event.id,
-        recall_bot_id: api_response.id,
-        meeting_url: calendar_event.hangout_link,
-        status: api_response.status_changes |> List.first() |> Map.get(:code)
-      })
+      if status in 200..299 do
+        # Extract status from status_changes, default to "pending" if not available
+        bot_status =
+          case api_response.status_changes do
+            nil -> "pending"
+            [] -> "pending"
+            [first | _] -> Map.get(first, :code, "pending")
+          end
+
+        create_recall_bot(%{
+          user_id: user.id,
+          calendar_event_id: calendar_event.id,
+          recall_bot_id: api_response.id,
+          meeting_url: calendar_event.hangout_link,
+          status: bot_status
+        })
+      else
+        {:error, {:api_error, status, api_response}}
+      end
     else
       {:error, reason} -> {:error, {:api_error, reason}}
     end

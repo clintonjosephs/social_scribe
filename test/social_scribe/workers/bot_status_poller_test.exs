@@ -51,10 +51,6 @@ defmodule SocialScribe.Workers.BotStatusPollerTest do
       }
     ],
     join_at: "2025-05-24T23:13:00Z",
-    transcription_options: %{
-      provider: "meeting_captions",
-      use_separate_streams_when_available: false
-    },
     bot_name: "Meeting Notetaker",
     media_retention_end: "2025-05-31T23:16:23.890255Z",
     meeting_metadata: %{title: "jqq-gusf-vvs"},

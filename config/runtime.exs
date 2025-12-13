@@ -17,6 +17,15 @@ import Config
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
 
+# Load .env file in dev/test environments
+# This must be called BEFORE any config statements that use System.get_env()
+# We use a side_effect to actually set System environment variables
+if config_env() in [:dev, :test] do
+  Dotenvy.source(".env", side_effect: fn vars ->
+    Enum.each(vars, fn {key, value} -> System.put_env(key, value) end)
+  end)
+end
+
 config :ueberauth, Ueberauth.Strategy.Google.OAuth,
   client_id: System.get_env("GOOGLE_CLIENT_ID"),
   client_secret: System.get_env("GOOGLE_CLIENT_SECRET"),

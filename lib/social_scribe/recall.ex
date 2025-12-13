@@ -20,9 +20,10 @@ defmodule SocialScribe.Recall do
 
   @impl SocialScribe.RecallApi
   def create_bot(meeting_url, join_at) do
+    # Recall.ai API requires only meeting_url and join_at
+    # Transcription is handled automatically by the API
     body = %{
       meeting_url: meeting_url,
-      transcription_options: %{provider: "meeting_captions"},
       join_at: Timex.format!(join_at, "{ISO:Extended}")
     }
 
