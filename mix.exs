@@ -13,6 +13,7 @@ defmodule SocialScribe.MixProject do
     ]
   end
 
+  # test test
   # Configuration for the OTP application.
   #
   # Type `mix help compile.app` for more information.
