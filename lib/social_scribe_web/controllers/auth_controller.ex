@@ -3,9 +3,26 @@ defmodule SocialScribeWeb.AuthController do
 
   alias SocialScribe.FacebookApi
   alias SocialScribe.Accounts
+
+  # Log callback requests before Ueberauth processes them
+  plug :log_callback_request when action in [:callback]
   plug Ueberauth
 
   require Logger
+
+  defp log_callback_request(conn, _opts) do
+    if conn.path_info == ["google", "callback"] do
+      Logger.info("Google callback received - before Ueberauth processing")
+      Logger.info("Query string: #{inspect(conn.query_string)}")
+      Logger.info("Params: #{inspect(conn.params)}")
+
+      # Log the configured redirect URI
+      redirect_uri = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)[:redirect_uri]
+      Logger.info("Configured redirect_uri: #{inspect(redirect_uri)}")
+    end
+
+    conn
+  end
 
   @doc """
   Handles the initial request to the provider (e.g., Google).
@@ -35,6 +52,20 @@ defmodule SocialScribeWeb.AuthController do
         })
 
     redirect(conn, external: auth_url)
+  end
+
+  def request(conn, %{"provider" => "google"} = params) do
+    # Log the redirect URI that will be used
+    redirect_uri_config =
+      Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)[:redirect_uri]
+
+    Logger.info("Google OAuth request initiated")
+    Logger.info("Redirect URI from config: #{inspect(redirect_uri_config)}")
+    Logger.info("Request params: #{inspect(params)}")
+    Logger.info("Conn host: #{conn.host}")
+    Logger.info("Conn scheme: #{conn.scheme}")
+
+    render(conn, :request)
   end
 
   def request(conn, _params) do
@@ -74,6 +105,48 @@ defmodule SocialScribeWeb.AuthController do
         |> put_flash(:error, "Could not add Google account.")
         |> redirect(to: ~p"/dashboard/settings")
     end
+  end
+
+  def callback(%{assigns: %{ueberauth_auth: _auth}} = conn, %{"provider" => "google"}) do
+    Logger.warn("Google OAuth callback received but user is not logged in")
+    Logger.warn("Google OAuth login is not yet implemented. Please log in first.")
+
+    conn
+    |> put_flash(:error, "Please log in first, then connect your Google account.")
+    |> redirect(to: ~p"/users/log_in")
+  end
+
+  def callback(%{assigns: %{ueberauth_failure: failure}} = conn, %{"provider" => "google"}) do
+    Logger.error("Google OAuth failure: #{inspect(failure)}")
+    Logger.error("Failure details: #{inspect(failure.errors)}")
+    Logger.error("Request params: #{inspect(conn.params)}")
+    Logger.error("Request query string: #{inspect(conn.query_string)}")
+
+    conn
+    |> put_flash(:error, "Google authentication failed. Please try again.")
+    |> redirect(to: ~p"/users/log_in")
+  end
+
+  # Catch-all for any Google callback that doesn't match above patterns
+  def callback(conn, %{"provider" => "google"} = params) do
+    Logger.error("Google OAuth callback - unmatched pattern")
+    Logger.error("Conn assigns: #{inspect(Map.keys(conn.assigns))}")
+    Logger.error("Params: #{inspect(params)}")
+    Logger.error("Query params: #{inspect(conn.params)}")
+    Logger.error("Query string: #{inspect(conn.query_string)}")
+
+    # Check if Ueberauth processed it
+    if Map.has_key?(conn.assigns, :ueberauth_auth) do
+      Logger.info("Ueberauth auth found: #{inspect(conn.assigns.ueberauth_auth)}")
+    end
+
+    if Map.has_key?(conn.assigns, :ueberauth_failure) do
+      Logger.error("Ueberauth failure found: #{inspect(conn.assigns.ueberauth_failure)}")
+    end
+
+    conn
+    |> put_flash(:error, "Google authentication failed. Please try again.")
+    |> redirect(to: ~p"/users/log_in")
   end
 
   def callback(%{assigns: %{ueberauth_auth: auth, current_user: user}} = conn, %{

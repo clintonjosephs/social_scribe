@@ -31,7 +31,7 @@ end
 config :ueberauth, Ueberauth.Strategy.Google.OAuth,
   client_id: System.get_env("GOOGLE_CLIENT_ID"),
   client_secret: System.get_env("GOOGLE_CLIENT_SECRET"),
-  redirect_uri: System.get_env("GOOGLE_REDIRECT_URI")
+  redirect_uri: System.get_env("GOOGLE_REDIRECT_URI") || nil
 
 config :ueberauth, Ueberauth.Strategy.LinkedIn.OAuth,
   client_id: System.get_env("LINKEDIN_CLIENT_ID"),
@@ -96,8 +96,17 @@ if config_env() == :prod do
     ],
     secret_key_base: secret_key_base
 
+  # Override redirect_uri in production to use PHX_HOST, ensuring it matches the deployed URL
+  # This MUST match exactly what's registered in Google Cloud Console
+  google_redirect_uri = "https://" <> host <> "/auth/google/callback"
+
   config :ueberauth, Ueberauth.Strategy.Google.OAuth,
-    redirect_uri: "https://" <> host <> "/auth/google/callback"
+    redirect_uri: google_redirect_uri
+
+  # Log the redirect URI being used (for debugging)
+  if System.get_env("LOG_REDIRECT_URI") == "true" do
+    IO.puts("Google OAuth redirect_uri configured as: #{google_redirect_uri}")
+  end
 
   # ## SSL Support
   #
