@@ -100,8 +100,7 @@ if config_env() == :prod do
   # This MUST match exactly what's registered in Google Cloud Console
   google_redirect_uri = "https://" <> host <> "/auth/google/callback"
 
-  config :ueberauth, Ueberauth.Strategy.Google.OAuth,
-    redirect_uri: google_redirect_uri
+  config :ueberauth, Ueberauth.Strategy.Google.OAuth, redirect_uri: google_redirect_uri
 
   # Log the redirect URI being used (for debugging)
   if System.get_env("LOG_REDIRECT_URI") == "true" do
