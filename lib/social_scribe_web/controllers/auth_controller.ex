@@ -17,7 +17,9 @@ defmodule SocialScribeWeb.AuthController do
       Logger.info("Params: #{inspect(conn.params)}")
 
       # Log the configured redirect URI
-      redirect_uri = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)[:redirect_uri]
+      redirect_uri =
+        Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)[:redirect_uri]
+
       Logger.info("Configured redirect_uri: #{inspect(redirect_uri)}")
     end
 
