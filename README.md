@@ -6,7 +6,7 @@ Social Scribe is a powerful Elixir and Phoenix LiveView application designed to 
 
 ---
 
-**➡️ [Live Demo](https://social-scribe.fly.dev/) ⬅️**
+**➡️ [Live Demo](https://social-scribe-pooedw.fly.dev/) ⬅️**
 
 ---
 
