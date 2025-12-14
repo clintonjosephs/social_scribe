@@ -505,6 +505,8 @@ defmodule SocialScribeWeb.MeetingLive.Show do
             failed_fields = Enum.map(failed_creations, fn {:error, field, _} -> field end)
             fields_list = Enum.join(failed_fields, ", ")
 
+            send(self(), {:close_hubspot_modal})
+
             {:noreply,
              socket
              |> put_flash(
@@ -549,6 +551,8 @@ defmodule SocialScribeWeb.MeetingLive.Show do
           update_contact_with_retry(credential, contact_id, filtered_update_properties, socket)
       end
     else
+      send(self(), {:close_hubspot_modal})
+
       {:noreply,
        socket
        |> put_flash(:error, "No HubSpot account connected.")}
@@ -582,6 +586,8 @@ defmodule SocialScribeWeb.MeetingLive.Show do
 
       {:error, {:api_error, 400, error_body}} ->
         Logger.error("Failed to update HubSpot contact: #{inspect(error_body)}")
+
+        send(self(), {:close_hubspot_modal})
 
         # Extract different types of errors
         errors = Map.get(error_body, "errors", [])
@@ -667,6 +673,8 @@ defmodule SocialScribeWeb.MeetingLive.Show do
 
       {:error, reason} ->
         Logger.error("Failed to update HubSpot contact: #{inspect(reason)}")
+
+        send(self(), {:close_hubspot_modal})
 
         {:noreply,
          socket

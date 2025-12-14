@@ -167,14 +167,14 @@ defmodule SocialScribe.HubSpotAISuggestions do
     2. Provide a human-readable label for the field
     3. Note the current value in HubSpot (or null if not set)
     4. Provide the suggested new value from the transcript (extract the exact value mentioned)
-    5. If possible, note approximately where in the transcript this was mentioned (timestamp or context)
+    5. REQUIRED: Always include the timestamp where this was mentioned in the transcript_reference field. Use format "Found in transcript (MM:SS)" where MM is minutes and SS is seconds. Calculate the timestamp from the start_timestamp values in the transcript segments.
 
     Return your response as a JSON array of objects, where each object has:
     - "field_name": The HubSpot property name (e.g., "phone", "firstname")
     - "field_label": Human-readable label (e.g., "Phone number", "First name")
     - "existing_value": Current value in HubSpot or null
     - "suggested_value": The new value suggested from transcript
-    - "transcript_reference": Optional note about where this was found (e.g., "Found in transcript (15:46)")
+    - "transcript_reference": REQUIRED - Always include timestamp in format "Found in transcript (MM:SS)" where MM is minutes and SS is seconds. Example: "Found in transcript (15:46)" or "Found in transcript (2:30)". Extract the approximate timestamp from the transcript segment where this information was mentioned.
 
     Suggest updates for:
     - ANY information mentioned in the transcript, even if mentioned casually or in passing
@@ -196,21 +196,21 @@ defmodule SocialScribe.HubSpotAISuggestions do
         "field_label": "First name",
         "existing_value": "Ty",
         "suggested_value": "Tyler",
-        "transcript_reference": "Mentioned by participant"
+        "transcript_reference": "Found in transcript (8:23)"
       },
       {
         "field_name": "account_balance",
         "field_label": "Account Balance",
         "existing_value": null,
         "suggested_value": "$250,000",
-        "transcript_reference": "Mentioned at 12:30"
+        "transcript_reference": "Found in transcript (12:30)"
       },
       {
         "field_name": "retirement_date",
         "field_label": "Retirement Date",
         "existing_value": null,
         "suggested_value": "2026-06-15",
-        "transcript_reference": "Discussed retirement plans"
+        "transcript_reference": "Found in transcript (5:15)"
       }
     ]
     """

@@ -276,8 +276,8 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                 </div>
                 <div class="flex items-center gap-3">
                   <span
-                    class="text-xs px-2 py-1 rounded"
-                    style="background-color: rgb(225, 229, 233); color: rgb(71, 85, 105);"
+                    class="text-xs px-2 py-1 rounded-full font-semibold"
+                    style="background-color: rgb(225, 229, 233); color: rgb(0, 0, 0);"
                   >
                     {count_selected_in_group(group_suggestions, @selected_updates)} update{if count_selected_in_group(
                                                                                                 group_suggestions,
@@ -309,36 +309,40 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                       <div class="text-sm font-medium text-slate-700 mb-2 ml-7">
                         {suggestion.field_label}
                       </div>
-                      <div class="flex items-center gap-3">
+                      <div class="flex items-start gap-3">
                         <input
                           type="checkbox"
                           checked={MapSet.member?(@selected_updates, suggestion.field_name)}
                           phx-click="toggle-update"
                           phx-value-field={suggestion.field_name}
                           phx-target={@myself}
-                          class="w-4 h-4 border-slate-300 rounded focus:ring-[rgb(9,114,242)]"
+                          class="w-4 h-4 border-slate-300 rounded focus:ring-[rgb(9,114,242)] mt-1.5"
                           style="accent-color: rgb(9, 114, 242);"
                         />
-                        <!-- Existing Value -->
-                        <input
-                          type="text"
-                          value={format_value(suggestion.existing_value)}
-                          readonly
-                          class={[
-                            "flex-1 px-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded text-slate-600",
-                            if(suggestion.existing_value && suggestion.existing_value != "",
-                              do: "line-through",
-                              else: ""
-                            )
-                          ]}
-                        />
+                        <!-- Existing Value Column -->
+                        <div class="flex-1">
+                          <input
+                            type="text"
+                            value={format_value(suggestion.existing_value)}
+                            readonly
+                            class={[
+                              "w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded text-slate-600",
+                              if(suggestion.existing_value && suggestion.existing_value != "",
+                                do: "line-through",
+                                else: ""
+                              )
+                            ]}
+                          />
+                          <a href="#" class="text-xs hover:underline mt-1 block" style="color: rgb(9, 114, 242);">
+                            Update mapping
+                          </a>
+                        </div>
                         <!-- Arrow -->
-
                         <svg
                           viewBox="0 0 24 24"
                           id="right-arrow"
                           xmlns="http://www.w3.org/2000/svg"
-                          class="w-8 h-8 text-slate-400 flex-shrink-0"
+                          class="w-8 h-8 text-slate-400 flex-shrink-0 mt-1"
                         >
                           <path
                             id="primary"
@@ -347,23 +351,61 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                           >
                           </path>
                         </svg>
-                        <!-- Suggested Value -->
-                        <input
-                          type="text"
-                          value={suggestion.suggested_value}
-                          class="flex-1 px-3 py-1.5 text-sm bg-white border border-slate-200 rounded text-slate-800"
-                        />
+                        <!-- Suggested Value Column -->
+                        <div class="flex-1">
+                          <input
+                            type="text"
+                            value={suggestion.suggested_value}
+                            class="w-full px-3 py-1.5 text-sm bg-white border border-slate-200 rounded text-slate-800"
+                          />
+                          <%= if suggestion.transcript_reference do %>
+                            <%
+                              timestamp = parse_timestamp_from_reference(suggestion.transcript_reference)
+                              excerpt = if timestamp, do: extract_transcript_excerpt(@meeting, timestamp), else: nil
+                              display_time = if timestamp, do: format_timestamp_display(timestamp), else: nil
+                            %>
+                            <div class="text-xs text-slate-500 mt-1">
+                              <%= if timestamp && display_time do %>
+                                <span class="text-slate-500">
+                                  Found in transcript
+                                  <span
+                                    class="relative inline-block cursor-pointer text-[rgb(9,114,242)] hover:underline group"
+                                  >
+                                    <span>(<%= display_time %>)</span>
+                                    <%= if excerpt do %>
+                                      <span
+                                        class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 text-white text-xs rounded-lg shadow-lg whitespace-normal w-64 z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                                      >
+                                        <%= excerpt %>
+                                        <span class="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                          <svg
+                                            class="w-2 h-2 text-slate-900"
+                                            fill="currentColor"
+                                            viewBox="0 0 8 8"
+                                          >
+                                            <path d="M0 0l4 4 4-4z"></path>
+                                          </svg>
+                                        </span>
+                                      </span>
+                                    <% end %>
+                                  </span>
+                                </span>
+                              <% else %>
+                                <!-- Fallback: Show "Found in transcript" even if no timestamp parsed -->
+                                <span class="text-slate-500">
+                                  Found in transcript
+                                  <%= if String.contains?(suggestion.transcript_reference, "(") do %>
+                                    <!-- If reference has parentheses but we couldn't parse, show it -->
+                                    <span class="text-[rgb(9,114,242)]">
+                                      <%= Regex.replace(~r/.*?\(([^)]+)\).*/, suggestion.transcript_reference, "\\1") %>
+                                    </span>
+                                  <% end %>
+                                </span>
+                              <% end %>
+                            </div>
+                          <% end %>
+                        </div>
                       </div>
-
-                      <%= if suggestion.transcript_reference do %>
-                        <p class="text-xs text-slate-500 mb-2">
-                          {suggestion.transcript_reference}
-                        </p>
-                      <% end %>
-
-                      <a href="#" class="text-xs hover:underline" style="color: rgb(9, 114, 242);">
-                        Update mapping
-                      </a>
                     </div>
                   <% end %>
                 </div>
@@ -959,4 +1001,122 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
     # In a real implementation, you might have multiple integrations
     1
   end
+
+
+  # Parse timestamp from reference string
+  # Examples: "Found in transcript (15:46)" -> "15:46"
+  #           "Mentioned at 12:30" -> "12:30"
+  defp parse_timestamp_from_reference(reference) when is_binary(reference) do
+    # Try to match various timestamp patterns:
+    # - "Found in transcript (15:46)"
+    # - "Mentioned at 12:30"
+    # - "(15:46)"
+    # - "at 12:30"
+    # - "Mentioned by participant" -> no timestamp, return nil
+
+    # First check if it contains a timestamp pattern
+    regex = ~r/(?:\(|at\s+|transcript\s+\(?)(\d{1,2}):(\d{1,2})/
+    case Regex.run(regex, reference) do
+      [_, minutes, seconds] -> "#{minutes}:#{String.pad_leading(seconds, 2, "0")}"
+      _ -> nil
+    end
+  end
+
+  defp parse_timestamp_from_reference(_), do: nil
+
+  # Format timestamp for display (e.g., "15:46" -> "15:46", "15:06" -> "15:6")
+  defp format_timestamp_display(timestamp) when is_binary(timestamp) do
+    case String.split(timestamp, ":") do
+      [minutes, seconds] ->
+        # Remove leading zero from seconds if present
+        seconds_display = String.trim_leading(seconds, "0") |> then(&if &1 == "", do: "0", else: &1)
+        "#{minutes}:#{seconds_display}"
+
+      _ ->
+        timestamp
+    end
+  end
+
+  defp format_timestamp_display(_), do: nil
+
+  # Extract transcript excerpt around a timestamp
+  defp extract_transcript_excerpt(nil, _timestamp), do: nil
+
+  defp extract_transcript_excerpt(meeting, timestamp) when is_binary(timestamp) do
+    case meeting.meeting_transcript do
+      nil ->
+        nil
+
+      transcript ->
+        # Parse timestamp to seconds (e.g., "15:46" -> 946 seconds)
+        target_seconds = parse_timestamp_to_seconds(timestamp)
+
+        if target_seconds do
+          # Get transcript content
+          content = Map.get(transcript.content || %{}, "results") || []
+
+          # Find segments around the target time (±10 seconds)
+          excerpt_segments =
+            content
+            |> Enum.filter(fn segment ->
+              words = Map.get(segment, "words", [])
+              first_word = List.first(words)
+
+              if first_word do
+                start_time = Map.get(first_word, "start_timestamp") || Map.get(first_word, "startTimestamp") || 0
+
+                # Check if segment is within ±10 seconds of target
+                abs(start_time - target_seconds) <= 10
+              else
+                false
+              end
+            end)
+            |> Enum.take(3) # Take up to 3 segments
+
+          # Build excerpt text
+          if length(excerpt_segments) > 0 do
+            excerpt_segments
+            |> Enum.map(fn segment ->
+              words = Map.get(segment, "words", [])
+              speaker = Map.get(segment, "speaker") || "Unknown"
+
+              text =
+                words
+                |> Enum.map(&Map.get(&1, "text") || "")
+                |> Enum.join(" ")
+
+              "#{speaker}: #{text}"
+            end)
+            |> Enum.join(" ")
+            |> String.slice(0, 200) # Limit to 200 characters
+            |> then(&if String.length(&1) == 200, do: &1 <> "...", else: &1)
+          else
+            nil
+          end
+        else
+          nil
+        end
+    end
+  end
+
+  defp extract_transcript_excerpt(_meeting, _timestamp), do: nil
+
+  # Parse timestamp string to seconds (e.g., "15:46" -> 946)
+  defp parse_timestamp_to_seconds(timestamp) when is_binary(timestamp) do
+    case String.split(timestamp, ":") do
+      [minutes_str, seconds_str] ->
+        case {Integer.parse(minutes_str), Integer.parse(seconds_str)} do
+          {{minutes, _}, {seconds, _}} ->
+            minutes * 60 + seconds
+
+          _ ->
+            nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp parse_timestamp_to_seconds(_), do: nil
 end
