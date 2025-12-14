@@ -684,6 +684,7 @@ defmodule SocialScribeWeb.MeetingLive.Show do
 
   defp refresh_meeting_data(socket, meeting_id) do
     # Refresh meeting data
+    old_meeting = socket.assigns.meeting
     meeting = Meetings.get_meeting_with_details(meeting_id)
     {has_recording, recording_status} = check_recording_status(meeting.recall_bot.recall_bot_id)
 
@@ -693,12 +694,54 @@ defmodule SocialScribeWeb.MeetingLive.Show do
         meeting.meeting_transcript.content &&
         Map.get(meeting.meeting_transcript.content, "data", []) == []
 
+    # Check if transcript just became available (was empty, now has data)
+    old_has_transcript =
+      old_meeting.meeting_transcript &&
+        old_meeting.meeting_transcript.content &&
+        Map.get(old_meeting.meeting_transcript.content, "data", []) != []
+
+    new_has_transcript =
+      meeting.meeting_transcript &&
+        meeting.meeting_transcript.content &&
+        Map.get(meeting.meeting_transcript.content, "data", []) != []
+
+    transcript_just_available = !old_has_transcript && new_has_transcript
+
+    # Auto-extract participants if transcript just became available
+    {final_meeting, flash_message} =
+      if transcript_just_available && !Enum.any?(meeting.meeting_participants || []) do
+        Logger.info(
+          "Transcript just became available for meeting #{meeting_id}. Auto-extracting participants..."
+        )
+
+        alias SocialScribe.Workers.ParticipantExtractor
+
+        case ParticipantExtractor.extract_participants_for_meeting(meeting) do
+          {:ok, count} ->
+            Logger.info(
+              "Successfully auto-extracted #{count} participants for meeting #{meeting_id}"
+            )
+
+            # Refresh meeting again to get participants
+            updated_meeting = Meetings.get_meeting_with_details(meeting_id)
+
+            {updated_meeting,
+             "Transcript generated! Automatically extracted #{count} participant(s)."}
+
+          {:skipped, reason} ->
+            Logger.debug("Could not auto-extract participants: #{reason}")
+            {meeting, nil}
+        end
+      else
+        {meeting, nil}
+      end
+
     # Refresh automation results
     automation_results = Automations.list_automation_results_for_meeting(meeting_id)
 
     socket =
       socket
-      |> assign(:meeting, meeting)
+      |> assign(:meeting, final_meeting)
       |> assign(:automation_results, automation_results)
       |> assign(:has_recording, has_recording)
       |> assign(:recording_status, recording_status)
@@ -709,9 +752,12 @@ defmodule SocialScribeWeb.MeetingLive.Show do
       |> assign(
         :follow_up_email_form,
         to_form(%{
-          "follow_up_email" => meeting.follow_up_email || ""
+          "follow_up_email" => final_meeting.follow_up_email || ""
         })
       )
+      |> then(fn s ->
+        if flash_message, do: put_flash(s, :info, flash_message), else: s
+      end)
 
     {:noreply, socket}
   end
@@ -795,10 +841,14 @@ defmodule SocialScribeWeb.MeetingLive.Show do
         assigns.recording_status == "done" &&
         !assigns.transcript_exists_but_empty
 
+    # Show loading state if transcript is being generated (exists but is empty, or loading flag is set)
+    is_generating = assigns.transcript_exists_but_empty || assigns.transcript_loading
+
     assigns =
       assigns
       |> assign(:has_transcript, has_transcript)
       |> assign(:show_generate_button, show_generate_button)
+      |> assign(:is_generating, is_generating)
 
     ~H"""
     <div class="bg-white shadow-xl rounded-lg p-6 md:p-8">
@@ -859,6 +909,38 @@ defmodule SocialScribeWeb.MeetingLive.Show do
         <% else %>
           <div class="text-center py-8">
             <%= cond do %>
+              <% @is_generating -> %>
+                <div class="flex flex-col items-center justify-center">
+                  <svg
+                    class="animate-spin h-12 w-12 text-indigo-600 mb-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="4"
+                    >
+                    </circle>
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    >
+                    </path>
+                  </svg>
+                  <p class="text-slate-600 text-lg font-medium mb-2">Generating transcript...</p>
+                  <p class="text-slate-400 text-sm">
+                    This may take a few minutes. The page will refresh automatically when ready.
+                  </p>
+                  <p class="text-slate-400 text-sm mt-2">
+                    Participants will be extracted automatically once the transcript is ready.
+                  </p>
+                </div>
               <% !@has_recording -> %>
                 <p class="text-slate-500 text-lg mb-2">No recording found</p>
                 <p class="text-slate-400 text-sm">
@@ -869,15 +951,13 @@ defmodule SocialScribeWeb.MeetingLive.Show do
                 <p class="text-slate-400 text-sm">
                   The recording is still being processed. Please check back later.
                 </p>
-              <% @transcript_exists_but_empty -> %>
-                <p class="text-slate-500 text-lg mb-2">Transcript unavailable</p>
-                <p class="text-slate-400 text-sm">
-                  A transcript was created for this meeting but no transcript data was available from the recording.
-                </p>
               <% true -> %>
                 <p class="text-slate-500 text-lg mb-2">Transcript not available</p>
                 <p class="text-slate-400 text-sm mb-4">
                   Click the "Generate Transcript" button above to create a transcript for this meeting.
+                </p>
+                <p class="text-slate-400 text-xs">
+                  Once generated, participants will be extracted automatically.
                 </p>
             <% end %>
           </div>
