@@ -8,6 +8,8 @@ primary_region = 'gru'
 kill_signal = 'SIGTERM'
 
 [build]
+  elixir_version = "1.17.3"
+  erlang_version = "27.1"
 
 [deploy]
   release_command = '/app/bin/migrate'
