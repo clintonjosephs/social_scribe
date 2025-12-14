@@ -3,6 +3,7 @@ defmodule SocialScribeWeb.AuthController do
 
   alias SocialScribe.FacebookApi
   alias SocialScribe.Accounts
+  alias SocialScribeWeb.UserAuth
 
   # Log callback requests before Ueberauth processes them
   plug :log_callback_request when action in [:callback]
@@ -93,29 +94,41 @@ defmodule SocialScribeWeb.AuthController do
         "provider" => "google"
       })
       when not is_nil(user) do
-    Logger.info("Google OAuth")
+    Logger.info("Google OAuth callback for logged-in user")
     Logger.info(auth)
 
     case Accounts.find_or_create_user_credential(user, auth) do
       {:ok, _credential} ->
         conn
         |> put_flash(:info, "Google account added successfully.")
-        |> redirect(to: ~p"/dashboard/settings")
+        |> redirect(to: ~p"/dashboard")
 
       {:error, _reason} ->
         conn
         |> put_flash(:error, "Could not add Google account.")
-        |> redirect(to: ~p"/dashboard/settings")
+        |> redirect(to: ~p"/dashboard")
     end
   end
 
-  def callback(%{assigns: %{ueberauth_auth: _auth}} = conn, %{"provider" => "google"}) do
-    Logger.warning("Google OAuth callback received but user is not logged in")
-    Logger.warning("Google OAuth login is not yet implemented. Please log in first.")
+  def callback(%{assigns: %{ueberauth_auth: auth}} = conn, %{"provider" => "google"}) do
+    Logger.info("Google OAuth callback received for initial login")
+    Logger.info("Auth info: #{inspect(auth.info)}")
 
-    conn
-    |> put_flash(:error, "Please log in first, then connect your Google account.")
-    |> redirect(to: ~p"/users/log_in")
+    case Accounts.find_or_create_user_from_oauth(auth) do
+      {:ok, user} ->
+        Logger.info("User created/logged in via Google OAuth: #{user.email}")
+
+        conn
+        |> put_flash(:info, "Successfully signed in with Google!")
+        |> UserAuth.log_in_user(user)
+
+      {:error, reason} ->
+        Logger.error("Failed to create/login user via Google OAuth: #{inspect(reason)}")
+
+        conn
+        |> put_flash(:error, "Could not sign in with Google. Please try again.")
+        |> redirect(to: ~p"/")
+    end
   end
 
   def callback(%{assigns: %{ueberauth_failure: failure}} = conn, %{"provider" => "google"}) do
@@ -126,7 +139,7 @@ defmodule SocialScribeWeb.AuthController do
 
     conn
     |> put_flash(:error, "Google authentication failed. Please try again.")
-    |> redirect(to: ~p"/users/log_in")
+    |> redirect(to: ~p"/")
   end
 
   # Catch-all for any Google callback that doesn't match above patterns
@@ -148,7 +161,7 @@ defmodule SocialScribeWeb.AuthController do
 
     conn
     |> put_flash(:error, "Google authentication failed. Please try again.")
-    |> redirect(to: ~p"/users/log_in")
+    |> redirect(to: ~p"/")
   end
 
   def callback(%{assigns: %{ueberauth_auth: auth, current_user: user}} = conn, %{
