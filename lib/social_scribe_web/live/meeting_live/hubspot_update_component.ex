@@ -33,42 +33,163 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           Select Contact
         </label>
         <div class="relative">
-          <input
-            type="text"
-            phx-target={@myself}
-            phx-debounce="300"
-            phx-keyup="search-contacts"
-            phx-change="search-contacts"
-            value={@search_query}
-            placeholder="Search contacts..."
-            class="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:border-[rgb(9,114,242)]"
-            style="--tw-ring-color: rgb(9, 114, 242);"
-          />
-          <%= if @searching_contacts do %>
-            <div class="absolute right-3 top-2.5">
-              <svg
-                class="animate-spin h-5 w-5"
-                style="color: rgb(9, 114, 242);"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
+          <%= if @selected_contact do %>
+            <!-- Selected Contact Display in Input -->
+            <div
+              class="flex items-center gap-3 w-full px-4 py-2 border border-slate-300 rounded-md bg-white cursor-pointer hover:border-slate-400 transition-colors"
+              phx-click="clear-contact-selection"
+              phx-target={@myself}
+            >
+              <div
+                class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm bg-slate-200 text-black"
               >
-                <circle
-                  class="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="4"
-                >
-                </circle>
-                <path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                >
-                </path>
-              </svg>
+                {get_contact_initials(@selected_contact)}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="font-medium text-slate-700 truncate">
+                  {get_contact_display_name(@selected_contact)}
+                </div>
+              </div>
+              <%= unless @searching_contacts do %>
+                <!-- Up/Down Indicator -->
+                <div class="flex-shrink-0 flex flex-col">
+                  <svg
+                    class="w-3 h-3 text-slate-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 15l7-7 7 7"
+                    >
+                    </path>
+                  </svg>
+                  <svg
+                    class="w-3 h-3 text-slate-400 -mt-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    >
+                    </path>
+                  </svg>
+                </div>
+              <% end %>
+              <%= if @searching_contacts do %>
+                <!-- Loading Indicator (hides up/down indicator) -->
+                <div class="flex-shrink-0">
+                  <svg
+                    class="animate-spin h-5 w-5"
+                    style="color: rgb(9, 114, 242);"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="4"
+                    >
+                    </circle>
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    >
+                    </path>
+                  </svg>
+                </div>
+              <% end %>
+            </div>
+          <% else %>
+            <!-- Search Input -->
+            <div class="relative">
+              <input
+                type="text"
+                phx-target={@myself}
+                phx-debounce="300"
+                phx-keyup="search-contacts"
+                phx-change="search-contacts"
+                value={@search_query}
+                placeholder="Search contacts..."
+                class="w-full px-4 py-2 pr-10 border border-slate-300 rounded-md focus:ring-2 focus:border-[rgb(9,114,242)] focus:outline-none"
+                style="--tw-ring-color: rgb(9, 114, 242);"
+              />
+              <%= if @searching_contacts do %>
+                <!-- Loading Indicator -->
+                <div class="absolute right-3 top-2.5">
+                  <svg
+                    class="animate-spin h-5 w-5"
+                    style="color: rgb(9, 114, 242);"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="4"
+                    >
+                    </circle>
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    >
+                    </path>
+                  </svg>
+                </div>
+              <% else %>
+                <!-- Up/Down Indicator -->
+                <div class="absolute right-3 top-2.5 flex flex-col">
+                  <svg
+                    class="w-3 h-3 text-slate-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 15l7-7 7 7"
+                    >
+                    </path>
+                  </svg>
+                  <svg
+                    class="w-3 h-3 text-slate-400 -mt-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    >
+                    </path>
+                  </svg>
+                </div>
+              <% end %>
             </div>
           <% end %>
         </div>
@@ -85,8 +206,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                 class="px-4 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
               >
                 <div
-                  class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm"
-                  style="background-color: rgba(9, 114, 242, 0.1); color: rgb(9, 114, 242);"
+                  class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm bg-slate-200 text-black"
                 >
                   {get_contact_initials(contact)}
                 </div>
@@ -102,28 +222,6 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                 </div>
               </li>
             </ul>
-          </div>
-        <% end %>
-
-    <!-- Selected Contact Display -->
-        <%= if @selected_contact do %>
-          <div class="mt-3 flex items-center gap-2 p-3 bg-slate-50 rounded-md">
-            <div
-              class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-semibold"
-              style="background-color: rgba(9, 114, 242, 0.1); color: rgb(9, 114, 242);"
-            >
-              {get_contact_initials(@selected_contact)}
-            </div>
-            <div class="flex-1">
-              <div class="font-medium text-slate-700">
-                {get_contact_display_name(@selected_contact)}
-              </div>
-              <%= if get_contact_email(@selected_contact) do %>
-                <div class="text-sm text-slate-500">
-                  {get_contact_email(@selected_contact)}
-                </div>
-              <% end %>
-            </div>
           </div>
         <% end %>
       </div>
@@ -346,6 +444,17 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
     else
       search_contacts(socket, query)
     end
+  end
+
+  def handle_event("clear-contact-selection", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(selected_contact: nil)
+     |> assign(selected_contact_id: nil)
+     |> assign(search_query: "")
+     |> assign(show_contact_dropdown: false)
+     |> assign(suggestions: [])
+     |> assign(selected_updates: MapSet.new())}
   end
 
   def handle_event("select-contact", %{"contact-id" => contact_id}, socket) do
