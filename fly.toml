@@ -11,7 +11,6 @@ kill_signal = 'SIGTERM'
   dockerfile = "Dockerfile"
 
 [deploy]
-  release_command = '/app/bin/migrate'
 
 [env]
   PHX_HOST = 'social-scribe.fly.dev'
