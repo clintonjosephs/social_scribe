@@ -108,8 +108,8 @@ defmodule SocialScribeWeb.AuthController do
   end
 
   def callback(%{assigns: %{ueberauth_auth: _auth}} = conn, %{"provider" => "google"}) do
-    Logger.warn("Google OAuth callback received but user is not logged in")
-    Logger.warn("Google OAuth login is not yet implemented. Please log in first.")
+    Logger.warning("Google OAuth callback received but user is not logged in")
+    Logger.warning("Google OAuth login is not yet implemented. Please log in first.")
 
     conn
     |> put_flash(:error, "Please log in first, then connect your Google account.")
