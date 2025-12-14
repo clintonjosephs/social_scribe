@@ -26,7 +26,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           Here are suggested updates to sync with your integrations based on this meeting.
         </p>
       </div>
-
+      
     <!-- Contact Selection -->
       <div class="mb-6">
         <label class="block text-sm font-medium text-slate-700 mb-2">
@@ -40,9 +40,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
               phx-click="clear-contact-selection"
               phx-target={@myself}
             >
-              <div
-                class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm bg-slate-200 text-black"
-              >
+              <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm bg-slate-200 text-black">
                 {get_contact_initials(@selected_contact)}
               </div>
               <div class="flex-1 min-w-0">
@@ -193,7 +191,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
             </div>
           <% end %>
         </div>
-
+        
     <!-- Contact Dropdown -->
         <%= if @show_contact_dropdown && length(@contact_results) > 0 do %>
           <div class="mt-2 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -205,9 +203,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                 phx-target={@myself}
                 class="px-4 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
               >
-                <div
-                  class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm bg-slate-200 text-black"
-                >
+                <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm bg-slate-200 text-black">
                   {get_contact_initials(contact)}
                 </div>
                 <div class="flex-1">
@@ -225,7 +221,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           </div>
         <% end %>
       </div>
-
+      
     <!-- Suggestions Loading -->
       <%= if @generating_suggestions do %>
         <div class="text-center py-8">
@@ -248,7 +244,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           <p class="text-slate-600">Generating suggestions...</p>
         </div>
       <% end %>
-
+      
     <!-- Suggestions Display -->
       <%= if @suggestions && length(@suggestions) > 0 do %>
         <div class="space-y-4 mb-6">
@@ -300,7 +296,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                   </button>
                 </div>
               </div>
-
+              
     <!-- Group Suggestions -->
               <%= if Map.get(@expanded_groups, group_name, true) do %>
                 <div class="space-y-3">
@@ -333,7 +329,11 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                               )
                             ]}
                           />
-                          <a href="#" class="text-xs hover:underline mt-1 block" style="color: rgb(9, 114, 242);">
+                          <a
+                            href="#"
+                            class="text-xs hover:underline mt-1 block"
+                            style="color: rgb(9, 114, 242);"
+                          >
                             Update mapping
                           </a>
                         </div>
@@ -359,24 +359,25 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                             class="w-full px-3 py-1.5 text-sm bg-white border border-slate-200 rounded text-slate-800"
                           />
                           <%= if suggestion.transcript_reference do %>
-                            <%
-                              timestamp = parse_timestamp_from_reference(suggestion.transcript_reference)
-                              excerpt = if timestamp, do: extract_transcript_excerpt(@meeting, timestamp), else: nil
-                              display_time = if timestamp, do: format_timestamp_display(timestamp), else: nil
-                            %>
+                            <% timestamp =
+                              parse_timestamp_from_reference(suggestion.transcript_reference)
+
+                            excerpt =
+                              if timestamp,
+                                do: extract_transcript_excerpt(@meeting, timestamp),
+                                else: nil
+
+                            display_time =
+                              if timestamp, do: format_timestamp_display(timestamp), else: nil %>
                             <div class="text-xs text-slate-500 mt-1">
                               <%= if timestamp && display_time do %>
                                 <span class="text-slate-500">
                                   Found in transcript
-                                  <span
-                                    class="relative inline-block cursor-pointer text-[rgb(9,114,242)] hover:underline group"
-                                  >
-                                    <span>(<%= display_time %>)</span>
+                                  <span class="relative inline-block cursor-pointer text-[rgb(9,114,242)] hover:underline group">
+                                    <span>({display_time})</span>
                                     <%= if excerpt do %>
-                                      <span
-                                        class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 text-white text-xs rounded-lg shadow-lg whitespace-normal w-64 z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                                      >
-                                        <%= excerpt %>
+                                      <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 text-white text-xs rounded-lg shadow-lg whitespace-normal w-64 z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                        {excerpt}
                                         <span class="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
                                           <svg
                                             class="w-2 h-2 text-slate-900"
@@ -397,7 +398,11 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                                   <%= if String.contains?(suggestion.transcript_reference, "(") do %>
                                     <!-- If reference has parentheses but we couldn't parse, show it -->
                                     <span class="text-[rgb(9,114,242)]">
-                                      <%= Regex.replace(~r/.*?\(([^)]+)\).*/, suggestion.transcript_reference, "\\1") %>
+                                      {Regex.replace(
+                                        ~r/.*?\(([^)]+)\).*/,
+                                        suggestion.transcript_reference,
+                                        "\\1"
+                                      )}
                                     </span>
                                   <% end %>
                                 </span>
@@ -414,14 +419,14 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           <% end %>
         </div>
       <% end %>
-
+      
     <!-- Empty State -->
       <%= if @selected_contact && @suggestions && length(@suggestions) == 0 && !@generating_suggestions do %>
         <div class="text-center py-8 text-slate-500">
           <p>No suggested updates found for this contact.</p>
         </div>
       <% end %>
-
+      
     <!-- Footer -->
       <div class="flex items-center justify-between pt-4 -mx-14 px-14 border-t border-slate-200">
         <div class="text-sm text-slate-600">
@@ -1002,7 +1007,6 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
     1
   end
 
-
   # Parse timestamp from reference string
   # Examples: "Found in transcript (15:46)" -> "15:46"
   #           "Mentioned at 12:30" -> "12:30"
@@ -1016,6 +1020,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
 
     # First check if it contains a timestamp pattern
     regex = ~r/(?:\(|at\s+|transcript\s+\(?)(\d{1,2}):(\d{1,2})/
+
     case Regex.run(regex, reference) do
       [_, minutes, seconds] -> "#{minutes}:#{String.pad_leading(seconds, 2, "0")}"
       _ -> nil
@@ -1029,7 +1034,9 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
     case String.split(timestamp, ":") do
       [minutes, seconds] ->
         # Remove leading zero from seconds if present
-        seconds_display = String.trim_leading(seconds, "0") |> then(&if &1 == "", do: "0", else: &1)
+        seconds_display =
+          String.trim_leading(seconds, "0") |> then(&if &1 == "", do: "0", else: &1)
+
         "#{minutes}:#{seconds_display}"
 
       _ ->
@@ -1063,7 +1070,9 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
               first_word = List.first(words)
 
               if first_word do
-                start_time = Map.get(first_word, "start_timestamp") || Map.get(first_word, "startTimestamp") || 0
+                start_time =
+                  Map.get(first_word, "start_timestamp") || Map.get(first_word, "startTimestamp") ||
+                    0
 
                 # Check if segment is within ±10 seconds of target
                 abs(start_time - target_seconds) <= 10
@@ -1071,7 +1080,8 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                 false
               end
             end)
-            |> Enum.take(3) # Take up to 3 segments
+            # Take up to 3 segments
+            |> Enum.take(3)
 
           # Build excerpt text
           if length(excerpt_segments) > 0 do
@@ -1082,13 +1092,14 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
 
               text =
                 words
-                |> Enum.map(&Map.get(&1, "text") || "")
+                |> Enum.map(&(Map.get(&1, "text") || ""))
                 |> Enum.join(" ")
 
               "#{speaker}: #{text}"
             end)
             |> Enum.join(" ")
-            |> String.slice(0, 200) # Limit to 200 characters
+            # Limit to 200 characters
+            |> String.slice(0, 200)
             |> then(&if String.length(&1) == 200, do: &1 <> "...", else: &1)
           else
             nil
