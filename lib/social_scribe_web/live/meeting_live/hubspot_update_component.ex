@@ -26,7 +26,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           Here are suggested updates to sync with your integrations based on this meeting.
         </p>
       </div>
-      
+
     <!-- Contact Selection -->
       <div class="mb-6">
         <label class="block text-sm font-medium text-slate-700 mb-2">
@@ -72,7 +72,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
             </div>
           <% end %>
         </div>
-        
+
     <!-- Contact Dropdown -->
         <%= if @show_contact_dropdown && length(@contact_results) > 0 do %>
           <div class="mt-2 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -104,7 +104,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
             </ul>
           </div>
         <% end %>
-        
+
     <!-- Selected Contact Display -->
         <%= if @selected_contact do %>
           <div class="mt-3 flex items-center gap-2 p-3 bg-slate-50 rounded-md">
@@ -127,7 +127,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           </div>
         <% end %>
       </div>
-      
+
     <!-- Suggestions Loading -->
       <%= if @generating_suggestions do %>
         <div class="text-center py-8">
@@ -150,7 +150,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           <p class="text-slate-600">Generating suggestions...</p>
         </div>
       <% end %>
-      
+
     <!-- Suggestions Display -->
       <%= if @suggestions && length(@suggestions) > 0 do %>
         <div class="space-y-4 mb-6">
@@ -202,7 +202,7 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                   </button>
                 </div>
               </div>
-              
+
     <!-- Group Suggestions -->
               <%= if Map.get(@expanded_groups, group_name, true) do %>
                 <div class="space-y-3">
@@ -235,17 +235,17 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
                           ]}
                         />
                         <!-- Arrow -->
+
                         <svg
-                          class="w-8 h-5 text-slate-400 flex-shrink-0"
-                          fill="none"
-                          stroke="currentColor"
                           viewBox="0 0 24 24"
+                          id="right-arrow"
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="w-8 h-8 text-slate-400 flex-shrink-0"
                         >
                           <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2.5"
-                            d="M4 12h16m0 0l-6-6m6 6l-6 6"
+                            id="primary"
+                            d="M3,12H21m-3,3,3-3L18,9"
+                            style="fill: none; stroke: rgb(148, 163, 184); stroke-linecap: round; stroke-linejoin: round; stroke-width: 1;"
                           >
                           </path>
                         </svg>
@@ -274,14 +274,14 @@ defmodule SocialScribeWeb.MeetingLive.HubSpotUpdateComponent do
           <% end %>
         </div>
       <% end %>
-      
+
     <!-- Empty State -->
       <%= if @selected_contact && @suggestions && length(@suggestions) == 0 && !@generating_suggestions do %>
         <div class="text-center py-8 text-slate-500">
           <p>No suggested updates found for this contact.</p>
         </div>
       <% end %>
-      
+
     <!-- Footer -->
       <div class="flex items-center justify-between pt-4 -mx-14 px-14 border-t border-slate-200">
         <div class="text-sm text-slate-600">
